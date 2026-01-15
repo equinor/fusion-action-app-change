@@ -90,7 +90,38 @@ git diff --name-only HEAD~1 HEAD
 git diff --name-only origin/main...HEAD
 ```
 
-### 3. Wrong Apps Being Classified
+### 3. Test Failures During Development
+
+**Problem**: Tests fail when running `npm test` during local development.
+
+**Symptoms**:
+```
+ FAIL  scripts/simple.test.js
+  ● should return PR base SHA
+    Expected: "abc123"
+    Received: "main"
+  
+  ● should return files from git diff
+    Expected: ["app1/file.ts", "app2/file.js"]
+    Received: ["scripts/simple.test.js"]
+```
+
+**This is Expected Behavior**:
+
+The test suite is designed for isolated CI environments and uses mocks that don't match the real development repository:
+
+- **Git commands**: Tests expect fake file lists but get real changes from your working directory
+- **GitHub context**: Tests mock PR events and base refs that differ from your local environment  
+- **File system**: Tests expect controlled fake data instead of actual repository files
+
+**Solutions**:
+
+1. **Ignore test failures during development** - This is normal and expected
+2. **Focus on manual testing**: Use `node scripts/index.js` to test your changes
+3. **Test in CI**: Push to a branch and let GitHub Actions run tests in the proper environment
+4. **Create isolated test repos**: For thorough testing, create separate test repositories with controlled structures
+
+### 4. Wrong Apps Being Classified
 
 **Problem**: Libraries are detected as apps, or apps are being excluded.
 

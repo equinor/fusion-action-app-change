@@ -33,12 +33,12 @@ jobs:
       - name: Run tests
         run: npm run test
       
-      - name: Check code formatting
+      - name: Check code formatting and style
         run: |
-          npm run format
+          npm run check
           if [ -n "$(git status --porcelain)" ]; then
-            echo "Code is not formatted properly!"
-            echo "Please run 'npm run format' and commit the changes."
+            echo "Code is not formatted properly or has linting issues!"
+            echo "Please run 'npm run check' and commit the changes."
             git diff
             exit 1
           fi
