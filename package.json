@@ -20,12 +20,7 @@
     "type": "git",
     "url": "git+https://github.com/equinor/fusion-action-app-change.git"
   },
-  "keywords": [
-    "github-action",
-    "fusion",
-    "change-detection",
-    "continuous-deployment"
-  ],
+  "keywords": ["github-action", "fusion", "change-detection", "continuous-deployment"],
   "author": "Equinor",
   "license": "MIT",
   "dependencies": {
