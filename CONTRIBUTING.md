@@ -86,17 +86,8 @@ fusion-action-app-change/
 
 ### Unit Tests
 
-⚠️ **Note**: Tests may fail when run in the actual repository during development. This is expected behavior.
-
-The test suite uses mocks and expects controlled environments. When run against the real repository, tests may fail because:
-- Git commands return actual file changes instead of mocked data
-- Real GitHub context differs from test expectations
-- Tests expect specific fake data that doesn't exist in development
-
-This is normal for development work. Tests are designed to run in isolated CI environments.
-
 ```bash
-# Run all tests (may fail in development - this is expected)
+# Run all tests
 npm test
 
 # Run tests in watch mode
@@ -105,6 +96,8 @@ npm run test:watch
 # Run tests with coverage
 npm run test:coverage
 ```
+
+The test suite uses proper mocking to isolate dependencies and should run successfully in all environments.
 
 ### Integration Testing
 

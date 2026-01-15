@@ -1,24 +1,27 @@
-// Manual mocks
-const mockCore = {
-  getInput: jest.fn(),
-  info: jest.fn(),
-  warning: jest.fn(),
-  setOutput: jest.fn(),
-  setFailed: jest.fn(),
-};
+// Mock modules before any imports
+jest.mock("@actions/core");
+jest.mock("node:fs", () => {
+  const originalFs = jest.requireActual("fs");
+  return {
+    ...originalFs,
+    existsSync: jest.fn(),
+    readFileSync: jest.fn(),
+    lstatSync: jest.fn(),
+    readdirSync: jest.fn(),
+    promises: {
+      access: jest.fn(),
+      readFile: jest.fn(),
+      writeFile: jest.fn(),
+    },
+  };
+});
+jest.mock("node:child_process", () => ({
+  execSync: jest.fn(),
+}));
 
-const mockFs = {
-  existsSync: jest.fn(),
-  readFileSync: jest.fn(),
-  lstatSync: jest.fn(),
-  readdirSync: jest.fn(),
-};
-
-const mockExecSync = jest.fn();
-
-jest.doMock("@actions/core", () => mockCore);
-jest.doMock("fs", () => mockFs);
-jest.doMock("child_process", () => ({ execSync: mockExecSync }));
+const mockCore = require("@actions/core");
+const mockFs = require("node:fs");
+const mockChildProcess = require("node:child_process");
 
 describe("Fusion App Change Detection - Simple Tests", () => {
   let indexModule;
@@ -37,6 +40,15 @@ describe("Fusion App Change Detection - Simple Tests", () => {
     mockCore.warning.mockImplementation(() => {});
     mockCore.setOutput.mockImplementation(() => {});
     mockCore.setFailed.mockImplementation(() => {});
+
+    // Default filesystem mocks
+    mockFs.existsSync.mockReturnValue(true);
+    mockFs.lstatSync.mockReturnValue({ isDirectory: () => true });
+    mockFs.readdirSync.mockReturnValue([]);
+    mockFs.readFileSync.mockReturnValue('{"name": "test"}');
+
+    // Default git command mock
+    mockChildProcess.execSync.mockReturnValue("");
 
     // Reset environment
     process.env.GITHUB_EVENT_NAME = undefined;
@@ -120,7 +132,7 @@ describe("Fusion App Change Detection - Simple Tests", () => {
 
   describe("getChangedFiles", () => {
     test("should return files from git diff", () => {
-      mockExecSync.mockReturnValue("app1/file.ts\napp2/file.js\n");
+      mockChildProcess.execSync.mockReturnValue("app1/file.ts\napp2/file.js\n");
 
       const result = indexModule.getChangedFiles("main");
 
@@ -128,7 +140,7 @@ describe("Fusion App Change Detection - Simple Tests", () => {
     });
 
     test("should handle git failures with fallback", () => {
-      mockExecSync.mockImplementation(() => {
+      mockChildProcess.execSync.mockImplementation(() => {
         throw new Error("Git failed");
       });
 
@@ -246,7 +258,7 @@ describe("Fusion App Change Detection - Simple Tests", () => {
       );
 
       // Mock git diff
-      mockExecSync.mockReturnValue("apps/fusion-app/src/index.ts\n");
+      mockChildProcess.execSync.mockReturnValue("apps/fusion-app/src/index.ts\n");
 
       await indexModule.run();
 
