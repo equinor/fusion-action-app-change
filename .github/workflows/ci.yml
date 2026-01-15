@@ -37,11 +37,11 @@ jobs:
 
       # Run tests to ensure quality before release
       - name: Run tests
-        run: npm test
+        run: pnpm test
 
       # Run linting to ensure code quality
       - name: Run linter
-        run: npm run lint
+        run: pnpm run lint
 
       # Process changesets: create version PR or publish new version
       - name: Create Release Pull Request or Publish new version
@@ -51,8 +51,8 @@ jobs:
           title: '🤖 Release - Fusion Action App Change'
           createGithubReleases: true
           setupGitUser: false
-          version: npm run changeset:version
-          publish: npm run changeset:publish
+          version: pnpm run changeset:version
+          publish: pnpm run changeset:publish
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
