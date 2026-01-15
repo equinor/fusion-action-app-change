@@ -1,0 +1,18 @@
+{
+  "key": "sample-fusion-app",
+  "name": "Sample Fusion App",
+  "version": "1.0.0",
+  "description": "A sample Fusion application for testing",
+  "type": "standalone",
+  "category": "tools",
+  "tags": ["sample", "demo"],
+  "builder": "vite",
+  "resources": {
+    "scripts": [
+      "index.js"
+    ],
+    "styles": [
+      "styles.css"
+    ]
+  }
+}

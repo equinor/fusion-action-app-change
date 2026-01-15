@@ -1,0 +1,11 @@
+{
+  "testEnvironment": "node",
+  "clearMocks": true,
+  "collectCoverageFrom": [
+    "scripts/**/*.js",
+    "!scripts/**/*.test.js"
+  ],
+  "testMatch": [
+    "**/scripts/**/*.test.js"
+  ]
+}
