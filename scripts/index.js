@@ -3,6 +3,21 @@ const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
 
+/**
+ * Main function that orchestrates the Fusion app change detection process.
+ * 
+ * This function:
+ * 1. Parses input parameters (app-paths)
+ * 2. Determines the base reference for comparison
+ * 3. Gets the list of changed files from git
+ * 4. Discovers all Fusion apps in the workspace
+ * 5. Identifies which apps have changes
+ * 6. Sets GitHub Actions outputs with the results
+ * 
+ * @async
+ * @function run
+ * @throws {Error} When detection fails due to git issues or parsing errors
+ */
 async function run() {
   try {
     core.info('🔍 Detecting changed Fusion apps...')
@@ -46,6 +61,17 @@ async function run() {
   }
 }
 
+/**
+ * Determines the appropriate git reference to use as the base for comparison.
+ * 
+ * The base reference selection strategy:
+ * - For pull requests: Uses the base branch SHA from the PR event
+ * - For pushes: Uses the previous commit (HEAD~1)
+ * - Falls back to 'main' branch if event parsing fails
+ * 
+ * @function getBaseRef
+ * @returns {string} The git reference to compare against (e.g., 'main', 'HEAD~1', or a specific SHA)
+ */
 function getBaseRef() {
   // Smart base ref detection based on event type
   const eventName = process.env.GITHUB_EVENT_NAME
@@ -62,6 +88,18 @@ function getBaseRef() {
   return 'HEAD~1'
 }
 
+/**
+ * Retrieves the list of files that have changed between the base reference and HEAD.
+ * 
+ * Uses multiple git diff strategies to ensure robust file detection:
+ * 1. git diff --name-only baseRef...HEAD (preferred for PRs)
+ * 2. git diff --name-only baseRef HEAD (fallback)
+ * 3. git diff --name-only HEAD~1 HEAD (last resort)
+ * 
+ * @function getChangedFiles
+ * @param {string} baseRef - The git reference to compare against
+ * @returns {string[]} Array of file paths that have changed
+ */
 function getChangedFiles(baseRef) {
   try {
     // Try different git diff approaches
@@ -91,6 +129,26 @@ function getChangedFiles(baseRef) {
   }
 }
 
+/**
+ * Discovers Fusion applications in the workspace using configurable patterns.
+ * 
+ * Supports multiple pattern formats:
+ * - Glob patterns: "apps/*" (searches inside the apps directory)
+ * - Direct paths: "apps" (searches the apps directory itself)
+ * - Multiple patterns: ["apps/*", "packages/apps/*"]
+ * 
+ * For each discovered directory, validates if it's a Fusion app by:
+ * 1. Checking for package.json existence
+ * 2. Parsing package.json content
+ * 3. Applying Fusion app classification logic via isFusionApp()
+ * 
+ * @function findFusionApps
+ * @param {string[]} patterns - Array of path patterns to search for apps
+ * @returns {Object[]} Array of app objects with name and path properties
+ * @example
+ * // Returns: [{ name: 'my-app', path: 'apps/my-app' }]
+ * findFusionApps(['apps/*'])
+ */
 function findFusionApps(patterns) {
   const apps = []
   
@@ -149,6 +207,46 @@ function findFusionApps(patterns) {
   return apps
 }
 
+/**
+ * Determines if a package.json represents a Fusion application (vs library).
+ * 
+ * Classification Algorithm:
+ * 1. Must have @equinor/fusion-* dependencies (required baseline)
+ * 2. Strong app indicators (any of these qualifies as app):
+ *    - Has @equinor/fusion-framework-cli dependency
+ *    - Has app-building scripts (build, start, etc.)
+ *    - Has Fusion app configuration (fusion/fusionApp fields)
+ *    - Is a private package (private: true)
+ * 3. Library exclusions:
+ *    - Publishable libraries (has main/module/exports + not private)
+ *    - Packages without app scripts or config
+ * 
+ * @function isFusionApp
+ * @param {Object} packageJson - Parsed package.json content
+ * @param {Object} [packageJson.dependencies] - Runtime dependencies
+ * @param {Object} [packageJson.devDependencies] - Development dependencies
+ * @param {Object} [packageJson.scripts] - NPM scripts
+ * @param {Object} [packageJson.fusion] - Fusion app configuration
+ * @param {Object} [packageJson.fusionApp] - Alternative Fusion app config
+ * @param {boolean} [packageJson.private] - Whether package is private
+ * @param {string} [packageJson.main] - Main entry point (indicates library)
+ * @param {string} [packageJson.module] - ES module entry (indicates library)
+ * @param {Object} [packageJson.exports] - Export map (indicates library)
+ * @returns {boolean} True if the package is classified as a Fusion app
+ * @example
+ * // App with CLI
+ * isFusionApp({
+ *   dependencies: { '@equinor/fusion-framework-cli': '^1.0.0' },
+ *   scripts: { build: 'ffc build' }
+ * }) // returns: true
+ * 
+ * // Library (excluded)
+ * isFusionApp({
+ *   dependencies: { '@equinor/fusion-components': '^1.0.0' },
+ *   main: 'dist/index.js',
+ *   private: false
+ * }) // returns: false
+ */
 function isFusionApp(packageJson) {
   const allDeps = {
     ...packageJson.dependencies,
@@ -185,6 +283,21 @@ function isFusionApp(packageJson) {
   return hasCli || hasAppScripts || hasAppConfig || packageJson.private
 }
 
+/**
+ * Identifies which discovered Fusion apps have changes based on the changed files list.
+ * 
+ * Change detection logic:
+ * - Normalizes file paths (removes leading './')
+ * - Checks if any changed file is within an app's directory
+ * - Handles special cases like universal wildcards (all files changed)
+ * 
+ * @function findChangedApps
+ * @param {string[]} changedFiles - Array of file paths that have changed
+ * @param {Object[]} allApps - Array of all discovered Fusion apps
+ * @param {string} allApps[].name - App name
+ * @param {string} allApps[].path - App directory path
+ * @returns {Object[]} Array of apps that have changes
+ */
 function findChangedApps(changedFiles, allApps) {
   const changedApps = []
   
@@ -206,6 +319,26 @@ function findChangedApps(changedFiles, allApps) {
   return changedApps
 }
 
+/**
+ * Sets all GitHub Actions outputs with the detection results.
+ * 
+ * Outputs provided:
+ * - changed-apps: Full JSON array of changed app objects
+ * - changed-app-names: Comma-separated list of app names
+ * - changed-app-paths: JSON array of app directory paths
+ * - changed-files: JSON array of all changed files
+ * - has-changes: Boolean string indicating if any changes exist
+ * - summary: Human-readable summary of changes
+ * - app-types: JSON array of app types (placeholder for future enhancement)
+ * - matrix: GitHub Actions matrix format for parallel jobs
+ * - changed-apps-count: Number of changed apps as string
+ * 
+ * @function setOutputs
+ * @param {Object[]} changedApps - Array of changed Fusion apps
+ * @param {string} changedApps[].name - App name
+ * @param {string} changedApps[].path - App directory path
+ * @param {string[]} [changedFiles=[]] - Array of changed file paths
+ */
 function setOutputs(changedApps, changedFiles = []) {
   const appNames = changedApps.map(app => app.name)
   const appPaths = changedApps.map(app => app.path)
