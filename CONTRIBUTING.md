@@ -57,17 +57,27 @@ We welcome contributions to the Fusion App Change Detection Action! This guide w
    node scripts/index.js
    ```
 
-4. **Commit and push**
+4. **Add a changeset (for release)**
+   ```bash
+   # If your changes should be included in the next release
+   npm run changeset
+   
+   # Follow the prompts to describe your changes
+   # This creates a file in .changeset/ that describes your changes
+   ```
+
+5. **Commit and push**
    ```bash
    git add .
    git commit -m "feat: add your feature description"
    git push origin feature/your-feature-name
    ```
 
-5. **Create a Pull Request**
+6. **Create a Pull Request**
    - Use a descriptive title
    - Explain what your PR does
    - Reference any related issues
+   - Include the changeset file if this should trigger a release
 
 ## 📁 Project Structure
 
@@ -163,21 +173,36 @@ When requesting features:
 
 ## 📦 Releasing
 
-### For Maintainers
+### Automated Releases (Recommended)
+
+This project uses [Changesets](https://github.com/changesets/changesets) for automated release management:
+
+1. **Contributors**: Add changeset files when making changes that should be released
+   ```bash
+   npm run changeset
+   ```
+
+2. **Maintainers**: When ready to release, merge the automatically created "Release" PR
+   - Changesets will automatically create a release PR with version bumps
+   - Merging this PR will publish the new version and create GitHub releases
+   - Git tags (v1.2.3, v1.2, v1) are automatically created for GitHub Actions marketplace
+
+### Manual Releases (Fallback)
+
+If needed, releases can be created manually:
 
 1. **Update version** in package.json
-2. **Update RELEASES.md** with changes
-3. **Create and push tag**:
+2. **Create and push tag**:
    ```bash
-   git tag -a v0.1.0 -m "v0.1.0 - Description of changes"
+   git tag -a v0.1.0 -m "v0.1.0 - Description of changes"  
    git push --tags
    ```
-4. **Create GitHub release** with release notes
+3. **Create GitHub release** with release notes
 
 ### Version Strategy
 
 - **Major** (v1.0.0): Breaking changes
-- **Minor** (v0.1.0): New features, backward compatible
+- **Minor** (v0.1.0): New features, backward compatible  
 - **Patch** (v0.0.1): Bug fixes, backward compatible
 
 ## 🤝 Code of Conduct
