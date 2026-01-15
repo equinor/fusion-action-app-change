@@ -1,6 +1,6 @@
 {
   "name": "fusion-action-app-change",
-  "version": "1.0.0",
+  "version": "0.0.5",
   "description": "GitHub Action for detecting changes in Fusion applications",
   "main": "scripts/index.js",
   "scripts": {
