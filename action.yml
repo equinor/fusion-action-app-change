@@ -49,14 +49,8 @@ runs:
       shell: bash
       run: |
         cd "$GITHUB_ACTION_PATH"
-        if [ -f "pnpm-lock.yaml" ]; then
-          npm install -g pnpm
-          pnpm install --frozen-lockfile --prod
-        elif [ -f "package-lock.json" ]; then
-          npm ci --only=production
-        else
-          npm install --only=production
-        fi
+        npm install -g pnpm
+        pnpm install --frozen-lockfile --prod
         
     - name: Run action
       shell: bash  
