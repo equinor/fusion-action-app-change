@@ -233,7 +233,7 @@ describe('Fusion App Change Detection - Simple Tests', () => {
       
       expect(mockCore.setOutput).toHaveBeenCalledWith('has-changes', 'true')
       expect(mockCore.setOutput).toHaveBeenCalledWith('changed-apps-count', '1')
-      expect(mockCore.info).toHaveBeenCalledWith('📦 1 apps changed')
+      expect(mockCore.info).toHaveBeenCalledWith('📦 1 apps changed: my-fusion-app')
     })
   })
 })
