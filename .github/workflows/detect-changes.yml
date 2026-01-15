@@ -124,8 +124,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'pnpm'
-          cache-dependency-path: ${{ matrix.app.path }}/pnpm-lock.yaml
       
       - name: Install pnpm
         run: npm install -g pnpm
