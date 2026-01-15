@@ -2,6 +2,24 @@
 
 A GitHub Action that intelligently detects changes in Fusion applications within a repository and provides detailed information about what has changed. This action is designed to help with continuous deployment workflows by identifying which Fusion apps need to be built, tested, or deployed.
 
+## 🚀 Quick Start
+
+```yaml
+- uses: equinor/fusion-action-app-change@v1
+  id: detect
+- if: steps.detect.outputs.has-changes == 'true'
+  run: echo "Changed apps: ${{ steps.detect.outputs.changed-app-names }}"
+```
+
+## 📚 Documentation
+
+- **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration options and patterns
+- **[API Documentation](docs/API.md)** - Complete input/output reference and function API  
+- **[Examples & Use Cases](docs/EXAMPLES.md)** - Real-world workflow examples
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - Technical architecture and design decisions\n- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute to this project
+- **[Security Policy](SECURITY.md)** - Security considerations and reporting
+
 ## Features
 
 - 🎯 **Zero Configuration** - Works out of the box with sensible defaults
