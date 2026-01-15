@@ -1,6 +1,6 @@
 {
   "name": "fusion-action-app-change",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "GitHub Action for detecting changes in Fusion applications",
   "main": "scripts/index.js",
   "scripts": {
@@ -20,7 +20,12 @@
     "type": "git",
     "url": "git+https://github.com/equinor/fusion-action-app-change.git"
   },
-  "keywords": ["github-action", "fusion", "change-detection", "continuous-deployment"],
+  "keywords": [
+    "github-action",
+    "fusion",
+    "change-detection",
+    "continuous-deployment"
+  ],
   "author": "Equinor",
   "license": "MIT",
   "dependencies": {
