@@ -36,10 +36,14 @@ jobs:
       - name: Check code formatting and style
         run: |
           npm run check
-          if [ -n "$(git status --porcelain)" ]; then
+          # Check for uncommitted changes, excluding node_modules
+          CHANGED_FILES=$(git status --porcelain | grep -v "node_modules" || true)
+          if [ -n "$CHANGED_FILES" ]; then
             echo "Code is not formatted properly or has linting issues!"
             echo "Please run 'npm run check' and commit the changes."
-            git diff
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+            git diff --name-only | grep -v node_modules
             exit 1
           fi
 
