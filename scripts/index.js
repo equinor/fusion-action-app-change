@@ -11,9 +11,6 @@ async function run() {
     const appPaths = core.getInput('app-paths') || 'apps/*'
     const baseRef = getBaseRef()
     
-    core.info(`📂 App patterns: ${appPaths}`)
-    core.info(`🔄 Comparing against: ${baseRef}`)
-    
     // Parse app patterns
     let appPatterns = []
     if (appPaths.startsWith('[') && appPaths.endsWith(']')) {
@@ -24,7 +21,6 @@ async function run() {
     
     // Get changed files
     const changedFiles = getChangedFiles(baseRef)
-    core.info(`📁 Found ${changedFiles.length} changed files`)
     
     // Find all Fusion apps
     const allApps = findFusionApps(appPatterns)
@@ -32,17 +28,13 @@ async function run() {
     
     // Determine changed apps
     const changedApps = findChangedApps(changedFiles, allApps)
-    core.info(`📦 ${changedApps.length} apps changed`)
     
     // Set outputs
     setOutputs(changedApps, changedFiles)
     
     // Log results
     if (changedApps.length > 0) {
-      core.info('📋 Changed apps:')
-      for (const app of changedApps) {
-        core.info(`  ✓ ${app.name} at ${app.path}`)
-      }
+      core.info(`📦 ${changedApps.length} apps changed: ${changedApps.map(app => app.name).join(', ')}`)
     } else {
       core.info('✨ No Fusion apps changed')
     }
@@ -114,12 +106,18 @@ function findFusionApps(patterns) {
           const entries = fs.readdirSync(basePath)
           searchDirs = entries
             .map(entry => path.join(basePath, entry))
-            .filter(dirPath => fs.lstatSync(dirPath).isDirectory())
+            .filter(dirPath => {
+              return fs.lstatSync(dirPath).isDirectory()
+            })
+        } else {
+          core.warning(`⚠️ Base path does not exist or is not a directory: ${basePath}`)
         }
       } else {
         // Direct path
         if (fs.existsSync(pattern) && fs.lstatSync(pattern).isDirectory()) {
           searchDirs = [pattern]
+        } else {
+          core.warning(`⚠️ Direct path does not exist: ${pattern}`)
         }
       }
       
@@ -130,10 +128,11 @@ function findFusionApps(patterns) {
         if (fs.existsSync(packageJsonPath)) {
           try {
             const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+            const appName = packageJson.name || path.basename(dir)
             
             if (isFusionApp(packageJson)) {
               apps.push({
-                name: packageJson.name || path.basename(dir),
+                name: appName,
                 path: dir
               })
             }
@@ -157,14 +156,14 @@ function isFusionApp(packageJson) {
   }
   
   // Must have Fusion dependencies
-  const hasFusionDeps = Object.keys(allDeps).some(dep => 
-    dep.startsWith('@equinor/fusion')
-  )
+  const fusionDeps = Object.keys(allDeps).filter(dep => dep.startsWith('@equinor/fusion'))
+  const hasFusionDeps = fusionDeps.length > 0
   
   if (!hasFusionDeps) return false
   
   // Strong indicators it's an app (not library)
   const hasCli = !!allDeps['@equinor/fusion-framework-cli']
+  
   const scripts = packageJson.scripts || {}
   const hasAppScripts = Object.keys(scripts).some(script => 
     script.includes('build') || 
@@ -172,6 +171,7 @@ function isFusionApp(packageJson) {
     (scripts[script] || '').includes('fusion-framework-cli') ||
     (scripts[script] || '').includes('ffc')
   )
+  
   const hasAppConfig = !!(packageJson.fusion || packageJson.fusionApp)
   
   // Exclude clear libraries
