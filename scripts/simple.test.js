@@ -157,20 +157,43 @@ describe('Fusion App Change Detection - Simple Tests', () => {
         { name: 'app1', path: 'apps/app1' },
         { name: 'app2', path: 'apps/app2' }
       ]
+      const changedFiles = ['apps/app1/package.json', 'apps/app2/src/index.js']
       
-      indexModule.setOutputs(changedApps)
+      indexModule.setOutputs(changedApps, changedFiles)
       
       expect(mockCore.setOutput).toHaveBeenCalledWith('changed-apps', JSON.stringify(changedApps))
       expect(mockCore.setOutput).toHaveBeenCalledWith('changed-app-names', 'app1,app2')
+      expect(mockCore.setOutput).toHaveBeenCalledWith('changed-app-paths', JSON.stringify(['apps/app1', 'apps/app2']))
+      expect(mockCore.setOutput).toHaveBeenCalledWith('changed-files', JSON.stringify(changedFiles))
       expect(mockCore.setOutput).toHaveBeenCalledWith('has-changes', 'true')
+      expect(mockCore.setOutput).toHaveBeenCalledWith('summary', '2 Fusion apps changed: app1, app2')
+      expect(mockCore.setOutput).toHaveBeenCalledWith('app-types', JSON.stringify([]))
+      expect(mockCore.setOutput).toHaveBeenCalledWith('matrix', JSON.stringify({ include: changedApps }))
       expect(mockCore.setOutput).toHaveBeenCalledWith('changed-apps-count', '2')
     })
 
     test('should handle no changes', () => {
-      indexModule.setOutputs([])
+      indexModule.setOutputs([], [])
       
+      expect(mockCore.setOutput).toHaveBeenCalledWith('changed-apps', JSON.stringify([]))
+      expect(mockCore.setOutput).toHaveBeenCalledWith('changed-app-names', '')
+      expect(mockCore.setOutput).toHaveBeenCalledWith('changed-app-paths', JSON.stringify([]))
+      expect(mockCore.setOutput).toHaveBeenCalledWith('changed-files', JSON.stringify([]))
       expect(mockCore.setOutput).toHaveBeenCalledWith('has-changes', 'false')
+      expect(mockCore.setOutput).toHaveBeenCalledWith('summary', 'No Fusion apps changed')
+      expect(mockCore.setOutput).toHaveBeenCalledWith('app-types', JSON.stringify([]))
+      expect(mockCore.setOutput).toHaveBeenCalledWith('matrix', JSON.stringify({ include: [] }))
       expect(mockCore.setOutput).toHaveBeenCalledWith('changed-apps-count', '0')
+    })
+
+    test('should handle single app change correctly', () => {
+      const changedApps = [
+        { name: 'single-app', path: 'apps/single-app' }
+      ]
+      
+      indexModule.setOutputs(changedApps, [])
+      
+      expect(mockCore.setOutput).toHaveBeenCalledWith('summary', '1 Fusion app changed: single-app')
     })
   })
 

@@ -35,7 +35,7 @@ async function run() {
     core.info(`📦 ${changedApps.length} apps changed`)
     
     // Set outputs
-    setOutputs(changedApps)
+    setOutputs(changedApps, changedFiles)
     
     // Log results
     if (changedApps.length > 0) {
@@ -206,8 +206,9 @@ function findChangedApps(changedFiles, allApps) {
   return changedApps
 }
 
-function setOutputs(changedApps) {
+function setOutputs(changedApps, changedFiles = []) {
   const appNames = changedApps.map(app => app.name)
+  const appPaths = changedApps.map(app => app.path)
   const hasChanges = changedApps.length > 0
   
   // Create matrix for GitHub Actions
@@ -218,10 +219,22 @@ function setOutputs(changedApps) {
     }))
   }
   
+  // Generate summary
+  let summary
+  if (hasChanges) {
+    summary = `${changedApps.length} Fusion app${changedApps.length === 1 ? '' : 's'} changed: ${appNames.join(', ')}`
+  } else {
+    summary = 'No Fusion apps changed'
+  }
+  
   // Set all outputs
   core.setOutput('changed-apps', JSON.stringify(changedApps))
   core.setOutput('changed-app-names', appNames.join(','))
+  core.setOutput('changed-app-paths', JSON.stringify(appPaths))
+  core.setOutput('changed-files', JSON.stringify(changedFiles))
   core.setOutput('has-changes', hasChanges.toString())
+  core.setOutput('summary', summary)
+  core.setOutput('app-types', JSON.stringify([]))  // App types - will enhance later if needed
   core.setOutput('matrix', JSON.stringify(matrix))
   core.setOutput('changed-apps-count', changedApps.length.toString())
 }
