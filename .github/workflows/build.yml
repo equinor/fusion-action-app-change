@@ -54,13 +54,10 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Test action
+      - name: Test action (no Fusion apps expected)
         id: test-action
         uses: ./
-        with:
-          base-ref: HEAD~1
-          head-ref: HEAD
-          min-changes: 0
+        # Don't specify app-paths to test auto-discovery
       
       - name: Validate outputs
         run: |
@@ -68,6 +65,21 @@ jobs:
           echo "Has changes: ${{ steps.test-action.outputs.has-changes }}"
           echo "Summary: ${{ steps.test-action.outputs.summary }}"
           
-          # Validate JSON outputs
-          echo '${{ steps.test-action.outputs.changed-apps }}' | jq .
-          echo '${{ steps.test-action.outputs.changed-files }}' | jq .
+          # Validate JSON outputs are valid JSON
+          echo '${{ steps.test-action.outputs.changed-apps }}' | jq . > /dev/null
+          echo '${{ steps.test-action.outputs.changed-files }}' | jq . > /dev/null
+          echo '${{ steps.test-action.outputs.changed-app-paths }}' | jq . > /dev/null
+          echo '${{ steps.test-action.outputs.app-types }}' | jq . > /dev/null
+          
+          # For this repository (no Fusion apps), expect no changes
+          if [ "${{ steps.test-action.outputs.has-changes }}" != "false" ]; then
+            echo "❌ Expected has-changes to be false for repository with no Fusion apps"
+            exit 1
+          fi
+          
+          if [ "${{ steps.test-action.outputs.changed-apps-count }}" != "0" ]; then
+            echo "❌ Expected changed-apps-count to be 0 for repository with no Fusion apps"
+            exit 1
+          fi
+          
+          echo "✅ Integration test passed - action correctly detected no Fusion apps"
