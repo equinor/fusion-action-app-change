@@ -20,7 +20,7 @@ We welcome contributions to the Fusion App Change Detection Action! This guide w
 
 2. **Install dependencies**
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. **Run tests**
