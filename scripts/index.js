@@ -58,6 +58,17 @@ async function run() {
 
     core.info("✅ Detection completed");
   } catch (error) {
+    // Set minimal outputs even on failure to prevent validation errors
+    core.setOutput("changed-apps", "[]");
+    core.setOutput("changed-app-names", "");
+    core.setOutput("changed-app-paths", "[]");
+    core.setOutput("changed-files", "[]");
+    core.setOutput("has-changes", "false");
+    core.setOutput("summary", `Detection failed: ${error instanceof Error ? error.message : String(error)}`);
+    core.setOutput("app-types", "[]");
+    core.setOutput("matrix", JSON.stringify({ include: [] }));
+    core.setOutput("changed-apps-count", "0");
+    
     core.setFailed(
       `❌ Detection failed: ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -369,7 +380,7 @@ function setOutputs(changedApps, changedFiles = []) {
     summary = "No Fusion apps changed";
   }
 
-  // Set all outputs
+  // Set all outputs using the newer method for better GitHub Actions compatibility
   core.setOutput("changed-apps", JSON.stringify(changedApps));
   core.setOutput("changed-app-names", appNames.join(","));
   core.setOutput("changed-app-paths", JSON.stringify(appPaths));
@@ -379,6 +390,9 @@ function setOutputs(changedApps, changedFiles = []) {
   core.setOutput("app-types", JSON.stringify([])); // App types - will enhance later if needed
   core.setOutput("matrix", JSON.stringify(matrix));
   core.setOutput("changed-apps-count", changedApps.length.toString());
+
+  // Also log the summary for debugging
+  core.info(`📋 Summary: ${summary}`);
 }
 
 // Run the action
