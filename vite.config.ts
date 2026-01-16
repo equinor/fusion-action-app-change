@@ -3,20 +3,20 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
-    target: "node20",
+    target: "node24", // Matches action.yml
     outDir: "dist",
     emptyOutDir: true,
     minify: false,
     sourcemap: true,
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      formats: ["cjs"],
+      formats: ["cjs"], // CommonJS for GitHub Actions
       fileName: "index",
     },
     rollupOptions: {
       external: [
-        // Only Node built-ins remain external
         /^node:/,
+        "node:sqlite", // Add this line
         "fs",
         "path",
         "child_process",
@@ -35,17 +35,14 @@ export default defineConfig({
         "buffer",
         "querystring",
       ],
-      output: {
-        format: "cjs",
-        exports: "auto",
-      },
     },
+
     commonjsOptions: {
-      include: [/node_modules/], // Bundle all CJS dependencies
+      include: [/node_modules/], // Bundle CJS dependencies
     },
   },
   esbuild: {
-    target: "node20",
+    target: "node24",
   },
   define: {
     global: "globalThis",
