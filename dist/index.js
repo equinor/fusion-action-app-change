@@ -1,8 +1,5 @@
 "use strict";
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const node_child_process = require("node:child_process");
-const fs = require("node:fs");
-const path = require("node:path");
 const require$$0$1 = require("os");
 const require$$0$2 = require("crypto");
 const require$$1 = require("fs");
@@ -25,9 +22,12 @@ const require$$4$1 = require("node:tls");
 const require$$0$7 = require("node:buffer");
 const require$$3$1 = require("node:zlib");
 const require$$2$2 = require("node:crypto");
+const path = require("node:path");
 const require$$2$3 = require("node:timers");
 const require$$2$4 = require("child_process");
 const require$$6$2 = require("timers");
+const fs = require("node:fs");
+const node_child_process = require("node:child_process");
 var _documentCurrentScript = typeof document !== "undefined" ? document.currentScript : null;
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
@@ -45,8 +45,8 @@ function _interopNamespaceDefault(e) {
   n.default = e;
   return Object.freeze(n);
 }
-const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
 const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
+const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
 function getAugmentedNamespace(n) {
   if (Object.prototype.hasOwnProperty.call(n, "__esModule")) return n;
   var f = n.default;
@@ -26720,6 +26720,90 @@ Support boolean input list: \`true | True | TRUE | false | False | FALSE\``);
   return core;
 }
 var coreExports = requireCore();
+function findFusionApps(patterns) {
+  const apps = [];
+  for (const pattern of patterns) {
+    try {
+      let searchDirs = [];
+      if (pattern.includes("*")) {
+        const basePath = pattern.replace("/*", "");
+        if (fs__namespace.existsSync(basePath) && fs__namespace.lstatSync(basePath).isDirectory()) {
+          const entries = fs__namespace.readdirSync(basePath);
+          searchDirs = entries.map((entry) => path__namespace.join(basePath, entry)).filter((dirPath) => {
+            return fs__namespace.lstatSync(dirPath).isDirectory();
+          });
+        } else {
+          coreExports.warning(`⚠️ Base path does not exist or is not a directory: ${basePath}`);
+        }
+      } else {
+        if (fs__namespace.existsSync(pattern) && fs__namespace.lstatSync(pattern).isDirectory()) {
+          searchDirs = [pattern];
+        } else {
+          coreExports.warning(`⚠️ Direct path does not exist: ${pattern}`);
+        }
+      }
+      for (const dir of searchDirs) {
+        const packageJsonPath = path__namespace.join(dir, "package.json");
+        if (fs__namespace.existsSync(packageJsonPath)) {
+          try {
+            const packageJson = JSON.parse(fs__namespace.readFileSync(packageJsonPath, "utf8"));
+            const appName = packageJson.name || path__namespace.basename(dir);
+            if (isFusionApp(packageJson)) {
+              apps.push({
+                name: appName,
+                path: dir
+              });
+            }
+          } catch (parseError) {
+            coreExports.warning(
+              `⚠️ Could not parse ${packageJsonPath}: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+            );
+          }
+        }
+      }
+    } catch (patternError) {
+      coreExports.warning(
+        `⚠️ Pattern ${pattern} failed: ${patternError instanceof Error ? patternError.message : String(patternError)}`
+      );
+    }
+  }
+  return apps;
+}
+function isFusionApp(packageJson) {
+  const allDeps = {
+    ...packageJson.dependencies,
+    ...packageJson.devDependencies
+  };
+  const fusionDeps = Object.keys(allDeps).filter((dep) => dep.startsWith("@equinor/fusion"));
+  const hasFusionDeps = fusionDeps.length > 0;
+  if (!hasFusionDeps) return false;
+  const hasCli = !!allDeps["@equinor/fusion-framework-cli"];
+  const scripts = packageJson.scripts || {};
+  const hasAppScripts = Object.keys(scripts).some(
+    (script) => script.includes("build") || script.includes("start") || (scripts[script] || "").includes("fusion-framework-cli") || (scripts[script] || "").includes("ffc")
+  );
+  const hasAppConfig = !!(packageJson.fusion || packageJson.fusionApp);
+  const isLibrary = !!(packageJson.main || packageJson.module || packageJson.exports);
+  const isPublishable = !packageJson.private && isLibrary;
+  if (isPublishable && !hasAppScripts && !hasAppConfig) {
+    return false;
+  }
+  return hasCli || hasAppScripts || hasAppConfig || !!packageJson.private;
+}
+function findChangedApps(changedFiles, allApps) {
+  const changedApps = [];
+  for (const app of allApps) {
+    const isChanged = changedFiles.some((file) => {
+      const normalizedFile = file.startsWith("./") ? file.slice(2) : file;
+      const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
+      return normalizedFile.startsWith(`${normalizedAppPath}/`) || normalizedFile === normalizedAppPath || file === "**/*";
+    });
+    if (isChanged) {
+      changedApps.push(app);
+    }
+  }
+  return changedApps;
+}
 var shellQuote = {};
 var quote;
 var hasRequiredQuote;
@@ -26950,48 +27034,6 @@ function requireShellQuote() {
   return shellQuote;
 }
 var shellQuoteExports = requireShellQuote();
-function setActionOutput(name, value) {
-  coreExports.setOutput(name, value);
-  coreExports.info(`📤 Set output ${name}=${value}`);
-}
-async function run() {
-  try {
-    coreExports.info("🔍 Detecting changed Fusion apps...");
-    const appPaths = coreExports.getInput("app-paths") || "apps/*";
-    const baseRef = getBaseRef();
-    let appPatterns = [];
-    if (appPaths.startsWith("[") && appPaths.endsWith("]")) {
-      appPatterns = JSON.parse(appPaths);
-    } else {
-      appPatterns = [appPaths];
-    }
-    const changedFiles = getChangedFiles(baseRef);
-    const allApps = findFusionApps(appPatterns);
-    coreExports.info(`🎯 Found ${allApps.length} Fusion apps`);
-    const changedApps = findChangedApps(changedFiles, allApps);
-    setOutputs(changedApps, changedFiles);
-    if (changedApps.length > 0) {
-      coreExports.info(
-        `📦 ${changedApps.length} apps changed: ${changedApps.map((app) => app.name).join(", ")}`
-      );
-    } else {
-      coreExports.info("✨ No Fusion apps changed");
-    }
-    coreExports.info("✅ Detection completed");
-  } catch (error) {
-    const errorMessage = `Detection failed: ${error instanceof Error ? error.message : String(error)}`;
-    setActionOutput("changed-apps", "[]");
-    setActionOutput("changed-app-names", "");
-    setActionOutput("changed-app-paths", "[]");
-    setActionOutput("changed-files", "[]");
-    setActionOutput("has-changes", "false");
-    setActionOutput("summary", errorMessage);
-    setActionOutput("app-types", "[]");
-    setActionOutput("matrix", JSON.stringify({ include: [] }));
-    setActionOutput("changed-apps-count", "0");
-    coreExports.setFailed(`❌ ${errorMessage}`);
-  }
-}
 function getBaseRef() {
   const eventName = process.env.GITHUB_EVENT_NAME;
   if (eventName === "pull_request") {
@@ -27036,89 +27078,9 @@ function getChangedFiles(baseRef) {
     return ["**/*"];
   }
 }
-function findFusionApps(patterns) {
-  const apps = [];
-  for (const pattern of patterns) {
-    try {
-      let searchDirs = [];
-      if (pattern.includes("*")) {
-        const basePath = pattern.replace("/*", "");
-        if (fs__namespace.existsSync(basePath) && fs__namespace.lstatSync(basePath).isDirectory()) {
-          const entries = fs__namespace.readdirSync(basePath);
-          searchDirs = entries.map((entry) => path__namespace.join(basePath, entry)).filter((dirPath) => {
-            return fs__namespace.lstatSync(dirPath).isDirectory();
-          });
-        } else {
-          coreExports.warning(`⚠️ Base path does not exist or is not a directory: ${basePath}`);
-        }
-      } else {
-        if (fs__namespace.existsSync(pattern) && fs__namespace.lstatSync(pattern).isDirectory()) {
-          searchDirs = [pattern];
-        } else {
-          coreExports.warning(`⚠️ Direct path does not exist: ${pattern}`);
-        }
-      }
-      for (const dir of searchDirs) {
-        const packageJsonPath = path__namespace.join(dir, "package.json");
-        if (fs__namespace.existsSync(packageJsonPath)) {
-          try {
-            const packageJson = JSON.parse(fs__namespace.readFileSync(packageJsonPath, "utf8"));
-            const appName = packageJson.name || path__namespace.basename(dir);
-            if (isFusionApp(packageJson)) {
-              apps.push({
-                name: appName,
-                path: dir
-              });
-            }
-          } catch (parseError) {
-            coreExports.warning(
-              `⚠️ Could not parse ${packageJsonPath}: ${parseError instanceof Error ? parseError.message : String(parseError)}`
-            );
-          }
-        }
-      }
-    } catch (patternError) {
-      coreExports.warning(
-        `⚠️ Pattern ${pattern} failed: ${patternError instanceof Error ? patternError.message : String(patternError)}`
-      );
-    }
-  }
-  return apps;
-}
-function isFusionApp(packageJson) {
-  const allDeps = {
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies
-  };
-  const fusionDeps = Object.keys(allDeps).filter((dep) => dep.startsWith("@equinor/fusion"));
-  const hasFusionDeps = fusionDeps.length > 0;
-  if (!hasFusionDeps) return false;
-  const hasCli = !!allDeps["@equinor/fusion-framework-cli"];
-  const scripts = packageJson.scripts || {};
-  const hasAppScripts = Object.keys(scripts).some(
-    (script) => script.includes("build") || script.includes("start") || (scripts[script] || "").includes("fusion-framework-cli") || (scripts[script] || "").includes("ffc")
-  );
-  const hasAppConfig = !!(packageJson.fusion || packageJson.fusionApp);
-  const isLibrary = !!(packageJson.main || packageJson.module || packageJson.exports);
-  const isPublishable = !packageJson.private && isLibrary;
-  if (isPublishable && !hasAppScripts && !hasAppConfig) {
-    return false;
-  }
-  return hasCli || hasAppScripts || hasAppConfig || !!packageJson.private;
-}
-function findChangedApps(changedFiles, allApps) {
-  const changedApps = [];
-  for (const app of allApps) {
-    const isChanged = changedFiles.some((file) => {
-      const normalizedFile = file.startsWith("./") ? file.slice(2) : file;
-      const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
-      return normalizedFile.startsWith(`${normalizedAppPath}/`) || normalizedFile === normalizedAppPath || file === "**/*";
-    });
-    if (isChanged) {
-      changedApps.push(app);
-    }
-  }
-  return changedApps;
+function setActionOutput(name, value) {
+  coreExports.setOutput(name, value);
+  coreExports.info(`📤 Set output ${name}=${value}`);
 }
 function setOutputs(changedApps, changedFiles = []) {
   const appNames = changedApps.map((app) => app.name);
@@ -27146,6 +27108,47 @@ function setOutputs(changedApps, changedFiles = []) {
   setActionOutput("matrix", JSON.stringify(matrix));
   setActionOutput("changed-apps-count", changedApps.length.toString());
   coreExports.info(`📋 Summary: ${summary2}`);
+}
+function setErrorOutputs(errorMessage) {
+  setActionOutput("changed-apps", "[]");
+  setActionOutput("changed-app-names", "");
+  setActionOutput("changed-app-paths", "[]");
+  setActionOutput("changed-files", "[]");
+  setActionOutput("has-changes", "false");
+  setActionOutput("summary", errorMessage);
+  setActionOutput("app-types", "[]");
+  setActionOutput("matrix", JSON.stringify({ include: [] }));
+  setActionOutput("changed-apps-count", "0");
+}
+async function run() {
+  try {
+    coreExports.info("🔍 Detecting changed Fusion apps...");
+    const appPaths = coreExports.getInput("app-paths") || "apps/*";
+    const baseRef = getBaseRef();
+    let appPatterns = [];
+    if (appPaths.startsWith("[") && appPaths.endsWith("]")) {
+      appPatterns = JSON.parse(appPaths);
+    } else {
+      appPatterns = [appPaths];
+    }
+    const changedFiles = getChangedFiles(baseRef);
+    const allApps = findFusionApps(appPatterns);
+    coreExports.info(`🎯 Found ${allApps.length} Fusion apps`);
+    const changedApps = findChangedApps(changedFiles, allApps);
+    setOutputs(changedApps, changedFiles);
+    if (changedApps.length > 0) {
+      coreExports.info(
+        `📦 ${changedApps.length} apps changed: ${changedApps.map((app) => app.name).join(", ")}`
+      );
+    } else {
+      coreExports.info("✨ No Fusion apps changed");
+    }
+    coreExports.info("✅ Detection completed");
+  } catch (error) {
+    const errorMessage = `Detection failed: ${error instanceof Error ? error.message : String(error)}`;
+    setErrorOutputs(errorMessage);
+    coreExports.setFailed(`❌ ${errorMessage}`);
+  }
 }
 if ((typeof document === "undefined" ? require("url").pathToFileURL(__filename).href : _documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === "SCRIPT" && _documentCurrentScript.src || new URL("index.js", document.baseURI).href) === `file://${process.argv[1]}`) {
   run().catch((error) => {

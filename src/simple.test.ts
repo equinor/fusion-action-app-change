@@ -15,7 +15,7 @@ import {
   getChangedFiles,
   isFusionApp,
   setOutputs,
-} from "./index";
+} from "./index.js";
 
 describe("Fusion App Change Detection - Simple Tests", () => {
   beforeEach(() => {
@@ -197,7 +197,8 @@ describe("Fusion App Change Detection - Simple Tests", () => {
     beforeEach(() => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.lstatSync).mockReturnValue({ isDirectory: () => true } as fs.Stats);
-      vi.mocked(fs.readdirSync).mockReturnValue(["app1", "app2"] as fs.Dirent[]);
+      // biome-ignore lint/suspicious/noExplicitAny: Test mock requires any type
+      vi.mocked(fs.readdirSync).mockReturnValue(["app1", "app2"] as any);
       vi.mocked(fs.readFileSync).mockReturnValue(
         JSON.stringify({
           name: "test-app",
