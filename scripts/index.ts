@@ -1,15 +1,58 @@
-const core = require("@actions/core");
-const fs = require("node:fs");
-const path = require("node:path");
-const { execSync } = require("node:child_process");
-const { quote } = require("shell-quote");
+import { execSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as core from "@actions/core";
+import { quote } from "shell-quote";
+
+/**
+ * Represents a Fusion application with its metadata
+ */
+interface FusionApp {
+  name: string;
+  path: string;
+}
+
+/**
+ * Package.json structure for type safety
+ */
+interface PackageJson {
+  name?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  scripts?: Record<string, string>;
+  fusion?: Record<string, unknown>;
+  fusionApp?: Record<string, unknown>;
+  private?: boolean;
+  main?: string;
+  module?: string;
+  exports?: Record<string, unknown>;
+}
+
+/**
+ * GitHub Actions matrix structure
+ */
+interface ActionsMatrix {
+  include: Array<{
+    name: string;
+    path: string;
+  }>;
+}
+
+/**
+ * GitHub event pull request structure
+ */
+interface GitHubEventPullRequest {
+  pull_request?: {
+    base?: {
+      sha?: string;
+    };
+  };
+}
 
 /**
  * Helper function to set outputs reliably in both standalone and composite actions
- * @param {string} name - Output name
- * @param {string} value - Output value
  */
-function setActionOutput(name, value) {
+function setActionOutput(name: string, value: string): void {
   // Use the standard @actions/core method - it handles GITHUB_OUTPUT correctly in v2+
   core.setOutput(name, value);
 
@@ -27,12 +70,8 @@ function setActionOutput(name, value) {
  * 4. Discovers all Fusion apps in the workspace
  * 5. Identifies which apps have changes
  * 6. Sets GitHub Actions outputs with the results
- *
- * @async
- * @function run
- * @throws {Error} When detection fails due to git issues or parsing errors
  */
-async function run() {
+async function run(): Promise<void> {
   try {
     core.info("🔍 Detecting changed Fusion apps...");
 
@@ -41,9 +80,9 @@ async function run() {
     const baseRef = getBaseRef();
 
     // Parse app patterns
-    let appPatterns = [];
+    let appPatterns: string[] = [];
     if (appPaths.startsWith("[") && appPaths.endsWith("]")) {
-      appPatterns = JSON.parse(appPaths);
+      appPatterns = JSON.parse(appPaths) as string[];
     } else {
       appPatterns = [appPaths];
     }
@@ -96,18 +135,20 @@ async function run() {
  * - For pull requests: Uses the base branch SHA from the PR event
  * - For pushes: Uses the previous commit (HEAD~1)
  * - Falls back to 'main' branch if event parsing fails
- *
- * @function getBaseRef
- * @returns {string} The git reference to compare against (e.g., 'main', 'HEAD~1', or a specific SHA)
  */
-function getBaseRef() {
+function getBaseRef(): string {
   // Smart base ref detection based on event type
   const eventName = process.env.GITHUB_EVENT_NAME;
 
   if (eventName === "pull_request") {
     try {
-      const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-      return event.pull_request?.base?.sha || "main";
+      const eventPath = process.env.GITHUB_EVENT_PATH;
+      if (eventPath) {
+        const event = JSON.parse(fs.readFileSync(eventPath, "utf8")) as GitHubEventPullRequest;
+        return event.pull_request?.base?.sha || "main";
+      }
+      // No event path available, fallback to main
+      return "main";
     } catch {
       return "main";
     }
@@ -123,12 +164,8 @@ function getBaseRef() {
  * 1. git diff --name-only baseRef...HEAD (preferred for PRs)
  * 2. git diff --name-only baseRef HEAD (fallback)
  * 3. git diff --name-only HEAD~1 HEAD (last resort)
- *
- * @function getChangedFiles
- * @param {string} baseRef - The git reference to compare against
- * @returns {string[]} Array of file paths that have changed
  */
-function getChangedFiles(baseRef) {
+function getChangedFiles(baseRef: string): string[] {
   try {
     // Sanitize baseRef to prevent command injection
     const safeBaseRef = quote([baseRef]);
@@ -158,7 +195,7 @@ function getChangedFiles(baseRef) {
     core.warning("⚠️ Could not determine changed files, assuming all apps may be affected");
     return ["**/*"];
   } catch (error) {
-    core.warning(`⚠️ Git diff failed: ${error.message}`);
+    core.warning(`⚠️ Git diff failed: ${error instanceof Error ? error.message : String(error)}`);
     return ["**/*"];
   }
 }
@@ -175,21 +212,14 @@ function getChangedFiles(baseRef) {
  * 1. Checking for package.json existence
  * 2. Parsing package.json content
  * 3. Applying Fusion app classification logic via isFusionApp()
- *
- * @function findFusionApps
- * @param {string[]} patterns - Array of path patterns to search for apps
- * @returns {Object[]} Array of app objects with name and path properties
- * @example
- * // Returns: [{ name: 'my-app', path: 'apps/my-app' }]
- * findFusionApps(['apps/*'])
  */
-function findFusionApps(patterns) {
-  const apps = [];
+function findFusionApps(patterns: string[]): FusionApp[] {
+  const apps: FusionApp[] = [];
 
   for (const pattern of patterns) {
     try {
       // Handle different pattern formats
-      let searchDirs = [];
+      let searchDirs: string[] = [];
 
       if (pattern.includes("*")) {
         // Glob pattern like "apps/*"
@@ -219,7 +249,7 @@ function findFusionApps(patterns) {
 
         if (fs.existsSync(packageJsonPath)) {
           try {
-            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8")) as PackageJson;
             const appName = packageJson.name || path.basename(dir);
 
             if (isFusionApp(packageJson)) {
@@ -229,12 +259,16 @@ function findFusionApps(patterns) {
               });
             }
           } catch (parseError) {
-            core.warning(`⚠️ Could not parse ${packageJsonPath}: ${parseError.message}`);
+            core.warning(
+              `⚠️ Could not parse ${packageJsonPath}: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+            );
           }
         }
       }
     } catch (patternError) {
-      core.warning(`⚠️ Pattern ${pattern} failed: ${patternError.message}`);
+      core.warning(
+        `⚠️ Pattern ${pattern} failed: ${patternError instanceof Error ? patternError.message : String(patternError)}`,
+      );
     }
   }
 
@@ -254,34 +288,8 @@ function findFusionApps(patterns) {
  * 3. Library exclusions:
  *    - Publishable libraries (has main/module/exports + not private)
  *    - Packages without app scripts or config
- *
- * @function isFusionApp
- * @param {Object} packageJson - Parsed package.json content
- * @param {Object} [packageJson.dependencies] - Runtime dependencies
- * @param {Object} [packageJson.devDependencies] - Development dependencies
- * @param {Object} [packageJson.scripts] - NPM scripts
- * @param {Object} [packageJson.fusion] - Fusion app configuration
- * @param {Object} [packageJson.fusionApp] - Alternative Fusion app config
- * @param {boolean} [packageJson.private] - Whether package is private
- * @param {string} [packageJson.main] - Main entry point (indicates library)
- * @param {string} [packageJson.module] - ES module entry (indicates library)
- * @param {Object} [packageJson.exports] - Export map (indicates library)
- * @returns {boolean} True if the package is classified as a Fusion app
- * @example
- * // App with CLI
- * isFusionApp({
- *   dependencies: { '@equinor/fusion-framework-cli': '^1.0.0' },
- *   scripts: { build: 'ffc build' }
- * }) // returns: true
- *
- * // Library (excluded)
- * isFusionApp({
- *   dependencies: { '@equinor/fusion-components': '^1.0.0' },
- *   main: 'dist/index.js',
- *   private: false
- * }) // returns: false
  */
-function isFusionApp(packageJson) {
+function isFusionApp(packageJson: PackageJson): boolean {
   const allDeps = {
     ...packageJson.dependencies,
     ...packageJson.devDependencies,
@@ -315,7 +323,7 @@ function isFusionApp(packageJson) {
     return false;
   }
 
-  return hasCli || hasAppScripts || hasAppConfig || packageJson.private;
+  return hasCli || hasAppScripts || hasAppConfig || !!packageJson.private;
 }
 
 /**
@@ -325,16 +333,9 @@ function isFusionApp(packageJson) {
  * - Normalizes file paths (removes leading './')
  * - Checks if any changed file is within an app's directory
  * - Handles special cases like universal wildcards (all files changed)
- *
- * @function findChangedApps
- * @param {string[]} changedFiles - Array of file paths that have changed
- * @param {Object[]} allApps - Array of all discovered Fusion apps
- * @param {string} allApps[].name - App name
- * @param {string} allApps[].path - App directory path
- * @returns {Object[]} Array of apps that have changes
  */
-function findChangedApps(changedFiles, allApps) {
-  const changedApps = [];
+function findChangedApps(changedFiles: string[], allApps: FusionApp[]): FusionApp[] {
+  const changedApps: FusionApp[] = [];
 
   for (const app of allApps) {
     const isChanged = changedFiles.some((file) => {
@@ -369,20 +370,14 @@ function findChangedApps(changedFiles, allApps) {
  * - app-types: JSON array of app types (placeholder for future enhancement)
  * - matrix: GitHub Actions matrix format for parallel jobs
  * - changed-apps-count: Number of changed apps as string
- *
- * @function setOutputs
- * @param {Object[]} changedApps - Array of changed Fusion apps
- * @param {string} changedApps[].name - App name
- * @param {string} changedApps[].path - App directory path
- * @param {string[]} [changedFiles=[]] - Array of changed file paths
  */
-function setOutputs(changedApps, changedFiles = []) {
+function setOutputs(changedApps: FusionApp[], changedFiles: string[] = []): void {
   const appNames = changedApps.map((app) => app.name);
   const appPaths = changedApps.map((app) => app.path);
   const hasChanges = changedApps.length > 0;
 
   // Create matrix for GitHub Actions
-  const matrix = {
+  const matrix: ActionsMatrix = {
     include: changedApps.map((app) => ({
       name: app.name,
       path: app.path,
@@ -413,11 +408,13 @@ function setOutputs(changedApps, changedFiles = []) {
 }
 
 // Run the action
-if (require.main === module) {
-  run();
+if (import.meta.url === `file://${process.argv[1]}`) {
+  run().catch((error) => {
+    core.setFailed(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
+  });
 }
 
-module.exports = {
+export {
   run,
   // Export internal functions for testing
   getBaseRef,

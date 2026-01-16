@@ -1,0 +1,88 @@
+import { defineConfig } from 'vitest/config'
+import { resolve } from 'path'
+
+export default defineConfig({
+  build: {
+    // GitHub Actions need to be in Node.js format, not browser
+    target: 'node20',
+    lib: {
+      // Entry point is our TypeScript file
+      entry: resolve(__dirname, 'scripts/index.ts'),
+      // Single bundle for GitHub Action
+      formats: ['cjs'],
+      fileName: 'index'
+    },
+    rollupOptions: {
+      // Don't bundle Node.js built-ins and @actions/* dependencies
+      external: [
+        // Keep Node.js built-ins as external
+        'node:fs',
+        'node:path', 
+        'node:child_process',
+        'node:os',
+        'node:crypto',
+        'node:stream',
+        'node:events',
+        'node:util',
+        'node:timers',
+        'node:assert',
+        'node:http',
+        'node:https',
+        'node:net',
+        'node:tls',
+        'node:zlib',
+        'node:buffer',
+        'node:querystring',
+        'fs',
+        'path',
+        'child_process',
+        'os',
+        'crypto',
+        'stream',
+        'events',
+        'util',
+        'timers',
+        'assert',
+        'http',
+        'https',
+        'net',
+        'tls',
+        'zlib',
+        'buffer',
+        'querystring',
+      ],
+      output: {
+        // Keep dynamic imports (if any) as require() calls
+        format: 'cjs',
+        // Disable code splitting for single file output
+        manualChunks: undefined,
+      }
+    },
+    // Output directory
+    outDir: 'dist',
+    // Don't minify for better debugging in GitHub Actions
+    minify: false,
+    // Generate source maps for debugging
+    sourcemap: true,
+    // Clear output directory
+    emptyOutDir: true,
+  },
+  // Ensure we can import TypeScript files
+  esbuild: {
+    target: 'node20'
+  },
+  // Define globals for Node.js environment
+  define: {
+    global: 'globalThis',
+  },
+  // Vitest configuration
+  test: {
+    environment: 'node',
+    clearMocks: true,
+    include: ['scripts/**/*.{test,spec}.{js,ts}'],
+    coverage: {
+      include: ['scripts/**/*.{js,ts}'],
+      exclude: ['scripts/**/*.{test,spec}.{js,ts}']
+    }
+  }
+})

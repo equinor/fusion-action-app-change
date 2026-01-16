@@ -44,4 +44,4 @@ outputs:
 
 runs:
   using: 'node20'
-  main: 'scripts/index.js'
+  main: 'dist/index.js'
