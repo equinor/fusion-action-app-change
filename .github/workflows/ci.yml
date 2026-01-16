@@ -64,7 +64,7 @@ jobs:
 
       # Create git tags for GitHub Action versioning (v1, v1.2, v1.2.3)
       - name: Create/Update Action Tags
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
         run: |
           # Get the latest version from package.json
           VERSION=$(node -p "require('./package.json').version")
