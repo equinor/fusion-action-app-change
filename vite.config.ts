@@ -3,18 +3,20 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
-    // GitHub Actions need to be in Node.js format, not browser
-    target: "node20",
+    target: "node24", // Matches action.yml
+    outDir: "dist",
+    emptyOutDir: true,
+    minify: false,
+    sourcemap: true,
     lib: {
-      // Entry point is our TypeScript file
       entry: resolve(__dirname, "src/index.ts"),
-      // Single bundle for GitHub Action
-      formats: ["cjs"],
+      formats: ["cjs"], // CommonJS for GitHub Actions
       fileName: "index",
     },
     rollupOptions: {
       external: [
         /^node:/,
+        "node:sqlite", // Add this line
         "fs",
         "path",
         "child_process",
@@ -32,34 +34,19 @@ export default defineConfig({
         "zlib",
         "buffer",
         "querystring",
-
-        // Critical: do not bundle GitHub Actions or undici
-        /^@actions\//,
-        "undici",
       ],
-      output: {
-        format: "cjs",
-        manualChunks: undefined,
-      },
     },
-    // Output directory
-    outDir: "dist",
-    // Don't minify for better debugging in GitHub Actions
-    minify: false,
-    // Generate source maps for debugging
-    sourcemap: true,
-    // Clear output directory
-    emptyOutDir: true,
+
+    commonjsOptions: {
+      include: [/node_modules/], // Bundle CJS dependencies
+    },
   },
-  // Ensure we can import TypeScript files
   esbuild: {
-    target: "node20",
+    target: "node24",
   },
-  // Define globals for Node.js environment
   define: {
     global: "globalThis",
   },
-  // Vitest configuration
   test: {
     environment: "node",
     clearMocks: true,

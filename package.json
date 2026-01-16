@@ -1,6 +1,6 @@
 {
   "name": "fusion-action-app-change",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "private": true,
   "description": "GitHub Action for detecting changes in Fusion applications",
   "main": "dist/index.js",
@@ -34,7 +34,10 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^2.0.2",
-    "shell-quote": "^1.8.3"
+    "shell-quote": "^1.8.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "undici": "6.23.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

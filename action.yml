@@ -43,5 +43,5 @@ outputs:
     description: 'JSON array of app names and their types (fusion-cli-app, react-fusion-app, etc.)'
 
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'
