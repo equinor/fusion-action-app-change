@@ -2,50 +2,52 @@
 
 ## Overview
 
-The Fusion App Change Detection Action is designed as a lightweight, zero-dependency GitHub Action that intelligently identifies changes in Fusion applications within a repository. The architecture emphasizes simplicity, reliability, and performance.
+The Fusion App Change Detection Action has been redesigned as a modular, workspace-aware system that intelligently identifies changes in Fusion applications and their dependencies. The architecture emphasizes simplicity, reliability, and comprehensive dependency tracking.
 
 ## High-Level Architecture
 
 ```mermaid
 graph TB
     subgraph "GitHub Actions Runtime"
-        IP["🔧 Input Parser<br/>• app-paths<br/>• token"]
-        CD["🔍 Change Detector<br/>• Git Analysis<br/>• App Discovery<br/>• Classification"]
-        OG["📤 Output Generator<br/>• JSON<br/>• Matrix<br/>• Summary"]
+        IP["🔧 Input Parser<br/>• app-paths<br/>• enable-dependency-tracking<br/>• token"]
+        WD["🔍 Workspace Discovery<br/>• Recursive Package Scan<br/>• Auto Classification<br/>• Dependency Analysis"]
+        CD["📊 Change Detection<br/>• Git Analysis<br/>• App Discovery<br/>• Dependency Impact"]
+        OG["📤 Output Generator<br/>• JSON Results<br/>• Matrix Format<br/>• Summary Reports"]
         
-        IP --> CD
+        IP --> WD
+        WD --> CD
         CD --> OG
     end
     
     subgraph "File System & Git Layer"
-        WF["📂 Workspace Files<br/>• package.json files<br/>• Directory structure<br/>• App manifests"]
+        WF["📂 Workspace Files<br/>• package.json files<br/>• Directory structure<br/>• App manifests<br/>• Dependencies"]
         GR["📜 Git Repository<br/>• Commit history<br/>• Diff analysis<br/>• Branch comparisons"]
     end
     
+    WD --> WF
     CD --> WF
     CD --> GR
 ```
 
-## Core Components
+## Modular Architecture (v2.0)
 
-### 1. Input Processing Layer
+The action has been refactored into focused, testable modules:
 
-**Purpose**: Parses and validates action inputs
+### Core Modules
 
-**Components**:
-- **Pattern Parser**: Converts string/JSON app-paths to searchable patterns
-- **Reference Resolver**: Determines git base reference for comparison
-- **Configuration Validator**: Ensures input parameters are valid
-
-**Input Flow**:
-```mermaid
-flowchart LR
-    A["Raw Inputs"] --> B["Pattern Parsing"]
-    B --> C["Validation"]
-    C --> D["Normalized Config"]
 ```
-
-### 2. Git Analysis Engine
+scripts/
+├── index.js                     # Main orchestration
+├── lib/
+│   ├── package-discovery.js     # Workspace scanning & app discovery
+│   ├── package-classification.js # App vs Library classification
+│   ├── dependency-graph.js      # Dependency analysis & graph building
+│   └── change-detection.js      # Git analysis & change detection
+└── __tests__/
+    ├── simple.test.js           # Legacy compatibility tests
+    ├── dependency-tracking.test.js # Dependency features tests
+    └── enhanced-dependency-detection.test.js # Advanced dependency tests
+```
 
 **Purpose**: Determines what files have changed between commits/branches
 

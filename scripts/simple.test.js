@@ -206,12 +206,17 @@ describe("Fusion App Change Detection - Simple Tests", () => {
       expect(mockCore.setOutput).toHaveBeenCalledWith("has-changes", "true");
       expect(mockCore.setOutput).toHaveBeenCalledWith(
         "summary",
-        "2 Fusion apps changed: app1, app2",
+        "2 apps changed: app1, app2",
       );
       expect(mockCore.setOutput).toHaveBeenCalledWith("app-types", JSON.stringify([]));
       expect(mockCore.setOutput).toHaveBeenCalledWith(
         "matrix",
-        JSON.stringify({ include: changedApps }),
+        JSON.stringify({ 
+          include: [
+            { name: "app1", path: "apps/app1", changeReason: "direct" },
+            { name: "app2", path: "apps/app2", changeReason: "direct" }
+          ]
+        }),
       );
       expect(mockCore.setOutput).toHaveBeenCalledWith("changed-apps-count", "2");
     });
@@ -228,6 +233,8 @@ describe("Fusion App Change Detection - Simple Tests", () => {
       expect(mockCore.setOutput).toHaveBeenCalledWith("app-types", JSON.stringify([]));
       expect(mockCore.setOutput).toHaveBeenCalledWith("matrix", JSON.stringify({ include: [] }));
       expect(mockCore.setOutput).toHaveBeenCalledWith("changed-apps-count", "0");
+      expect(mockCore.setOutput).toHaveBeenCalledWith("affected-by-dependencies", JSON.stringify([]));
+      expect(mockCore.setOutput).toHaveBeenCalledWith("changed-libraries", JSON.stringify([]));
     });
 
     test("should handle single app change correctly", () => {
@@ -237,7 +244,7 @@ describe("Fusion App Change Detection - Simple Tests", () => {
 
       expect(mockCore.setOutput).toHaveBeenCalledWith(
         "summary",
-        "1 Fusion app changed: single-app",
+        "1 app changed: single-app",
       );
     });
   });

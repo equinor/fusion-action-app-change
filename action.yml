@@ -12,6 +12,11 @@ inputs:
     required: false
     default: ''
   
+  enable-dependency-tracking:
+    description: 'Whether to track library dependencies and include affected apps when libraries change. Set to "true" to enable.'
+    required: false
+    default: 'false'
+  
   token:
     description: 'GitHub token for API access'
     required: false
@@ -41,6 +46,12 @@ outputs:
   
   app-types:
     description: 'JSON array of app names and their types (fusion-cli-app, react-fusion-app, etc.)'
+    
+  affected-by-dependencies:
+    description: 'JSON array of apps that are affected by library dependency changes'
+    
+  changed-libraries:
+    description: 'JSON array of changed libraries when dependency tracking is enabled'
 
 runs:
   using: 'node20'

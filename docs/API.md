@@ -7,8 +7,8 @@
 #### `app-paths`
 - **Type**: `string`
 - **Required**: No
-- **Default**: Auto-detection
-- **Description**: Comma-separated list of directory patterns where Fusion apps are located
+- **Default**: `apps/*`
+- **Description**: Comma-separated list of directory patterns where Fusion apps are located. Only used when dependency tracking is disabled.
 
 **Supported Formats**:
 ```yaml
@@ -31,6 +31,52 @@ app-paths: '["apps/*", "packages/apps/*"]'
 - `packages/*/apps/*` - Nested pattern for complex monorepos
 - `**/apps/*` - Recursive search (use with caution on large repos)
 
+#### `enable-dependency-tracking`
+- **Type**: `string`
+- **Required**: No
+- **Default**: `false`
+- **Description**: Enable automatic workspace discovery and dependency tracking. When `true`, scans entire workspace automatically.
+
+**Behavior**:
+- **When `false`**: Uses `app-paths` patterns to find apps
+- **When `true`**: Scans entire workspace, ignores `app-paths`
+- Automatically discovers all packages regardless of location
+- Builds dependency graph from package.json dependencies
+- Detects affected apps when libraries change
+
+**Supported Dependency Types**:
+```yaml
+# Workspace protocol
+"@company/shared-lib": "workspace:*"
+"@company/utils": "workspace:^1.0.0"
+
+# File dependencies
+"local-package": "file:../packages/local-package"
+
+# Relative paths
+"shared-utils": "../shared/utils"
+
+# Local git repositories
+"internal-lib": "git+file:///path/to/repo"
+library-paths: 'packages/libs/*,src/shared/*'
+```
+
+#### `enable-dependency-tracking`
+- **Type**: `string`
+- **Required**: No
+- **Default**: `false`
+- **Description**: Enable automatic detection of apps affected by local library changes
+
+**Values**:
+- `'true'` - Enable dependency tracking
+- `'false'` - Disable dependency tracking (default)
+
+**When enabled**:
+- Scans libraries using `library-paths` patterns
+- Builds dependency graph from package.json files
+- Includes apps affected by library changes in results
+- Supports transitive dependencies
+
 #### `token`
 - **Type**: `string`  
 - **Required**: No
@@ -48,8 +94,9 @@ app-paths: '["apps/*", "packages/apps/*"]'
 **AppObject Schema**:
 ```typescript
 interface AppObject {
-  name: string;        // App name from package.json or directory name
-  path: string;        // Relative path to app directory
+  name: string;           // App name from package.json or directory name
+  path: string;           // Relative path to app directory
+  changeReason?: string;  // 'direct' for direct changes, 'dependency' for library changes
 }
 ```
 
@@ -91,7 +138,9 @@ interface AppObject {
 - **Type**: `string`
 - **Description**: Human-readable summary of changes
 - **Examples**: 
-  - `"3 Fusion apps changed: portal-dashboard, analytics-app, user-management"`
+  - `"2 apps changed: portal-dashboard, analytics-app"`
+  - `"1 app affected by dependencies: dashboard-app"`  
+  - `"2 apps changed, 1 library changed: portal-dashboard, analytics-app"`
   - `"No Fusion apps changed"`
 
 #### Advanced Outputs
@@ -105,8 +154,8 @@ interface AppObject {
 ```json
 {
   "include": [
-    { "name": "portal-dashboard", "path": "apps/portal-dashboard" },
-    { "name": "analytics-app", "path": "apps/analytics" }
+    { "name": "portal-dashboard", "path": "apps/portal-dashboard", "changeReason": "direct" },
+    { "name": "analytics-app", "path": "apps/analytics", "changeReason": "dependency" }
   ]
 }
 ```
@@ -118,7 +167,7 @@ jobs:
     strategy:
       matrix: ${{ fromJson(needs.detect.outputs.matrix) }}
     steps:
-      - name: Build ${{ matrix.name }}
+      - name: Build ${{ matrix.name }} (${{ matrix.changeReason }})
         run: cd ${{ matrix.path }} && npm run build
 ```
 
@@ -131,6 +180,44 @@ jobs:
 - **Type**: `JSON Array`
 - **Description**: Reserved for future app type classification
 - **Current**: Always returns `[]`
+
+##### `affected-by-dependencies` 
+- **Type**: `JSON Array<AppObject>`
+- **Description**: Apps that are affected by library dependency changes (when dependency tracking is enabled)
+- **Example**: 
+```json
+[
+  {
+    "name": "dashboard-app",
+    "path": "apps/dashboard", 
+    "changeReason": "dependency"
+  }
+]
+```
+
+##### `changed-libraries`
+- **Type**: `JSON Array<LibraryObject>`
+- **Description**: Libraries that have changed (when dependency tracking is enabled)
+
+**LibraryObject Schema**:
+```typescript
+interface LibraryObject {
+  name: string;        // Library name from package.json
+  path: string;        // Relative path to library directory
+  packageJson: object; // Full package.json content
+}
+```
+
+**Example**:
+```json
+[
+  {
+    "name": "@company/shared-utils",
+    "path": "packages/shared-utils",
+    "packageJson": { "name": "@company/shared-utils", "version": "1.0.0" }
+  }
+]
+```
 
 ## Function API
 

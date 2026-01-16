@@ -1,8 +1,10 @@
 const core = require("@actions/core");
-const fs = require("node:fs");
-const path = require("node:path");
-const { execSync } = require("node:child_process");
-const { quote } = require("shell-quote");
+
+// Import our modular components
+const { discoverAllPackages, findFusionApps, findFusionLibrariesFromWorkspace } = require("./lib/package-discovery");
+const { hasFusionDependencies, isFusionApp } = require("./lib/package-classification");
+const { buildDependencyGraph, findTransitiveDependents } = require("./lib/dependency-graph");
+const { getBaseRef, getChangedFiles, findChangedApps, findChangedAppsWithDependencies } = require("./lib/change-detection");
 
 /**
  * Helper function to set outputs reliably in both standalone and composite actions
@@ -21,12 +23,13 @@ function setActionOutput(name, value) {
  * Main function that orchestrates the Fusion app change detection process.
  *
  * This function:
- * 1. Parses input parameters (app-paths)
+ * 1. Parses input parameters (app-paths, enable-dependency-tracking)
  * 2. Determines the base reference for comparison
  * 3. Gets the list of changed files from git
- * 4. Discovers all Fusion apps in the workspace
- * 5. Identifies which apps have changes
- * 6. Sets GitHub Actions outputs with the results
+ * 4. Discovers all Fusion apps and libraries in the workspace
+ * 5. Builds dependency graph if dependency tracking is enabled
+ * 6. Identifies which apps have direct changes or are affected by library changes
+ * 7. Sets GitHub Actions outputs with the results
  *
  * @async
  * @function run
@@ -38,9 +41,10 @@ async function run() {
 
     // Get inputs with smart defaults
     const appPaths = core.getInput("app-paths") || "apps/*";
+    const enableDependencyTracking = core.getInput("enable-dependency-tracking") === "true";
     const baseRef = getBaseRef();
 
-    // Parse app patterns
+    // Parse app patterns (for backward compatibility)
     let appPatterns = [];
     if (appPaths.startsWith("[") && appPaths.endsWith("]")) {
       appPatterns = JSON.parse(appPaths);
@@ -51,15 +55,45 @@ async function run() {
     // Get changed files
     const changedFiles = getChangedFiles(baseRef);
 
-    // Find all Fusion apps
-    const allApps = findFusionApps(appPatterns);
-    core.info(`🎯 Found ${allApps.length} Fusion apps`);
+    let allApps = [];
+    let allLibraries = [];
+    let dependencyGraph = new Map();
+    
+    if (enableDependencyTracking) {
+      // Use workspace discovery for better dependency tracking
+      core.info("🔍 Dependency tracking enabled - scanning entire workspace");
+      
+      const allPackages = discoverAllPackages();
+      
+      // Separate apps from libraries
+      allApps = allPackages.filter(pkg => isFusionApp(pkg.packageJson));
+      allLibraries = allPackages.filter(pkg => 
+        hasFusionDependencies(pkg.packageJson) && !isFusionApp(pkg.packageJson)
+      );
+      
+      core.info(`🎯 Found ${allApps.length} Fusion apps`);
+      core.info(`📚 Found ${allLibraries.length} Fusion libraries`);
+      
+      // Build dependency graph
+      dependencyGraph = buildDependencyGraph([...allApps, ...allLibraries]);
+      core.info(`🔗 Built dependency graph with ${dependencyGraph.size} packages`);
+    } else {
+      // Use pattern-based discovery (legacy mode)
+      allApps = findFusionApps(appPatterns);
+      core.info(`🎯 Found ${allApps.length} Fusion apps`);
+    }
 
-    // Determine changed apps
-    const changedApps = findChangedApps(changedFiles, allApps);
+    // Determine changed apps (direct changes + library dependency changes)
+    const changedApps = findChangedAppsWithDependencies(
+      changedFiles, 
+      allApps, 
+      allLibraries, 
+      dependencyGraph, 
+      enableDependencyTracking
+    );
 
     // Set outputs
-    setOutputs(changedApps, changedFiles);
+    setOutputs(changedApps, changedFiles, allLibraries, enableDependencyTracking);
 
     // Log results
     if (changedApps.length > 0) {
@@ -84,276 +118,11 @@ async function run() {
     setActionOutput("app-types", "[]");
     setActionOutput("matrix", JSON.stringify({ include: [] }));
     setActionOutput("changed-apps-count", "0");
+    setActionOutput("affected-by-dependencies", "[]");
+    setActionOutput("changed-libraries", "[]");
 
     core.setFailed(`❌ ${errorMessage}`);
   }
-}
-
-/**
- * Determines the appropriate git reference to use as the base for comparison.
- *
- * The base reference selection strategy:
- * - For pull requests: Uses the base branch SHA from the PR event
- * - For pushes: Uses the previous commit (HEAD~1)
- * - Falls back to 'main' branch if event parsing fails
- *
- * @function getBaseRef
- * @returns {string} The git reference to compare against (e.g., 'main', 'HEAD~1', or a specific SHA)
- */
-function getBaseRef() {
-  // Smart base ref detection based on event type
-  const eventName = process.env.GITHUB_EVENT_NAME;
-
-  if (eventName === "pull_request") {
-    try {
-      const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-      return event.pull_request?.base?.sha || "main";
-    } catch {
-      return "main";
-    }
-  }
-
-  return "HEAD~1";
-}
-
-/**
- * Retrieves the list of files that have changed between the base reference and HEAD.
- *
- * Uses multiple git diff strategies to ensure robust file detection:
- * 1. git diff --name-only baseRef...HEAD (preferred for PRs)
- * 2. git diff --name-only baseRef HEAD (fallback)
- * 3. git diff --name-only HEAD~1 HEAD (last resort)
- *
- * @function getChangedFiles
- * @param {string} baseRef - The git reference to compare against
- * @returns {string[]} Array of file paths that have changed
- */
-function getChangedFiles(baseRef) {
-  try {
-    // Sanitize baseRef to prevent command injection
-    const safeBaseRef = quote([baseRef]);
-
-    // Try different git diff approaches
-    const commands = [
-      `git diff --name-only ${safeBaseRef}...HEAD`,
-      `git diff --name-only ${safeBaseRef} HEAD`,
-      "git diff --name-only HEAD~1 HEAD",
-    ];
-
-    for (const cmd of commands) {
-      try {
-        const output = execSync(cmd, {
-          encoding: "utf8",
-          stdio: ["pipe", "pipe", "ignore"],
-        });
-        const files = output.split("\n").filter((file) => file.trim());
-        if (files.length > 0) {
-          return files;
-        }
-      } catch {
-        // continue to next command
-      }
-    }
-
-    core.warning("⚠️ Could not determine changed files, assuming all apps may be affected");
-    return ["**/*"];
-  } catch (error) {
-    core.warning(`⚠️ Git diff failed: ${error.message}`);
-    return ["**/*"];
-  }
-}
-
-/**
- * Discovers Fusion applications in the workspace using configurable patterns.
- *
- * Supports multiple pattern formats:
- * - Glob patterns: "apps/*" (searches inside the apps directory)
- * - Direct paths: "apps" (searches the apps directory itself)
- * - Multiple patterns: ["apps/*", "packages/apps/*"]
- *
- * For each discovered directory, validates if it's a Fusion app by:
- * 1. Checking for package.json existence
- * 2. Parsing package.json content
- * 3. Applying Fusion app classification logic via isFusionApp()
- *
- * @function findFusionApps
- * @param {string[]} patterns - Array of path patterns to search for apps
- * @returns {Object[]} Array of app objects with name and path properties
- * @example
- * // Returns: [{ name: 'my-app', path: 'apps/my-app' }]
- * findFusionApps(['apps/*'])
- */
-function findFusionApps(patterns) {
-  const apps = [];
-
-  for (const pattern of patterns) {
-    try {
-      // Handle different pattern formats
-      let searchDirs = [];
-
-      if (pattern.includes("*")) {
-        // Glob pattern like "apps/*"
-        const basePath = pattern.replace("/*", "");
-        if (fs.existsSync(basePath) && fs.lstatSync(basePath).isDirectory()) {
-          const entries = fs.readdirSync(basePath);
-          searchDirs = entries
-            .map((entry) => path.join(basePath, entry))
-            .filter((dirPath) => {
-              return fs.lstatSync(dirPath).isDirectory();
-            });
-        } else {
-          core.warning(`⚠️ Base path does not exist or is not a directory: ${basePath}`);
-        }
-      } else {
-        // Direct path
-        if (fs.existsSync(pattern) && fs.lstatSync(pattern).isDirectory()) {
-          searchDirs = [pattern];
-        } else {
-          core.warning(`⚠️ Direct path does not exist: ${pattern}`);
-        }
-      }
-
-      // Check each directory for Fusion apps
-      for (const dir of searchDirs) {
-        const packageJsonPath = path.join(dir, "package.json");
-
-        if (fs.existsSync(packageJsonPath)) {
-          try {
-            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
-            const appName = packageJson.name || path.basename(dir);
-
-            if (isFusionApp(packageJson)) {
-              apps.push({
-                name: appName,
-                path: dir,
-              });
-            }
-          } catch (parseError) {
-            core.warning(`⚠️ Could not parse ${packageJsonPath}: ${parseError.message}`);
-          }
-        }
-      }
-    } catch (patternError) {
-      core.warning(`⚠️ Pattern ${pattern} failed: ${patternError.message}`);
-    }
-  }
-
-  return apps;
-}
-
-/**
- * Determines if a package.json represents a Fusion application (vs library).
- *
- * Classification Algorithm:
- * 1. Must have @equinor/fusion-* dependencies (required baseline)
- * 2. Strong app indicators (any of these qualifies as app):
- *    - Has @equinor/fusion-framework-cli dependency
- *    - Has app-building scripts (build, start, etc.)
- *    - Has Fusion app configuration (fusion/fusionApp fields)
- *    - Is a private package (private: true)
- * 3. Library exclusions:
- *    - Publishable libraries (has main/module/exports + not private)
- *    - Packages without app scripts or config
- *
- * @function isFusionApp
- * @param {Object} packageJson - Parsed package.json content
- * @param {Object} [packageJson.dependencies] - Runtime dependencies
- * @param {Object} [packageJson.devDependencies] - Development dependencies
- * @param {Object} [packageJson.scripts] - NPM scripts
- * @param {Object} [packageJson.fusion] - Fusion app configuration
- * @param {Object} [packageJson.fusionApp] - Alternative Fusion app config
- * @param {boolean} [packageJson.private] - Whether package is private
- * @param {string} [packageJson.main] - Main entry point (indicates library)
- * @param {string} [packageJson.module] - ES module entry (indicates library)
- * @param {Object} [packageJson.exports] - Export map (indicates library)
- * @returns {boolean} True if the package is classified as a Fusion app
- * @example
- * // App with CLI
- * isFusionApp({
- *   dependencies: { '@equinor/fusion-framework-cli': '^1.0.0' },
- *   scripts: { build: 'ffc build' }
- * }) // returns: true
- *
- * // Library (excluded)
- * isFusionApp({
- *   dependencies: { '@equinor/fusion-components': '^1.0.0' },
- *   main: 'dist/index.js',
- *   private: false
- * }) // returns: false
- */
-function isFusionApp(packageJson) {
-  const allDeps = {
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies,
-  };
-
-  // Must have Fusion dependencies
-  const fusionDeps = Object.keys(allDeps).filter((dep) => dep.startsWith("@equinor/fusion"));
-  const hasFusionDeps = fusionDeps.length > 0;
-
-  if (!hasFusionDeps) return false;
-
-  // Strong indicators it's an app (not library)
-  const hasCli = !!allDeps["@equinor/fusion-framework-cli"];
-
-  const scripts = packageJson.scripts || {};
-  const hasAppScripts = Object.keys(scripts).some(
-    (script) =>
-      script.includes("build") ||
-      script.includes("start") ||
-      (scripts[script] || "").includes("fusion-framework-cli") ||
-      (scripts[script] || "").includes("ffc"),
-  );
-
-  const hasAppConfig = !!(packageJson.fusion || packageJson.fusionApp);
-
-  // Exclude clear libraries
-  const isLibrary = !!(packageJson.main || packageJson.module || packageJson.exports);
-  const isPublishable = !packageJson.private && isLibrary;
-
-  if (isPublishable && !hasAppScripts && !hasAppConfig) {
-    return false;
-  }
-
-  return hasCli || hasAppScripts || hasAppConfig || packageJson.private;
-}
-
-/**
- * Identifies which discovered Fusion apps have changes based on the changed files list.
- *
- * Change detection logic:
- * - Normalizes file paths (removes leading './')
- * - Checks if any changed file is within an app's directory
- * - Handles special cases like universal wildcards (all files changed)
- *
- * @function findChangedApps
- * @param {string[]} changedFiles - Array of file paths that have changed
- * @param {Object[]} allApps - Array of all discovered Fusion apps
- * @param {string} allApps[].name - App name
- * @param {string} allApps[].path - App directory path
- * @returns {Object[]} Array of apps that have changes
- */
-function findChangedApps(changedFiles, allApps) {
-  const changedApps = [];
-
-  for (const app of allApps) {
-    const isChanged = changedFiles.some((file) => {
-      const normalizedFile = file.startsWith("./") ? file.slice(2) : file;
-      const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
-
-      return (
-        normalizedFile.startsWith(`${normalizedAppPath}/`) ||
-        normalizedFile === normalizedAppPath ||
-        file === "**/*"
-      ); // Fallback case
-    });
-
-    if (isChanged) {
-      changedApps.push(app);
-    }
-  }
-
-  return changedApps;
 }
 
 /**
@@ -369,14 +138,18 @@ function findChangedApps(changedFiles, allApps) {
  * - app-types: JSON array of app types (placeholder for future enhancement)
  * - matrix: GitHub Actions matrix format for parallel jobs
  * - changed-apps-count: Number of changed apps as string
+ * - affected-by-dependencies: JSON array of apps affected by library changes
+ * - changed-libraries: JSON array of changed libraries (when tracking enabled)
  *
  * @function setOutputs
  * @param {Object[]} changedApps - Array of changed Fusion apps
  * @param {string} changedApps[].name - App name
  * @param {string} changedApps[].path - App directory path
  * @param {string[]} [changedFiles=[]] - Array of changed file paths
+ * @param {Object[]} [allLibraries=[]] - Array of all discovered libraries
+ * @param {boolean} [enableDependencyTracking=false] - Whether dependency tracking is enabled
  */
-function setOutputs(changedApps, changedFiles = []) {
+function setOutputs(changedApps, changedFiles = [], allLibraries = [], enableDependencyTracking = false) {
   const appNames = changedApps.map((app) => app.name);
   const appPaths = changedApps.map((app) => app.path);
   const hasChanges = changedApps.length > 0;
@@ -386,13 +159,40 @@ function setOutputs(changedApps, changedFiles = []) {
     include: changedApps.map((app) => ({
       name: app.name,
       path: app.path,
+      changeReason: app.changeReason || 'direct',
     })),
   };
+
+  // Separate apps by change reason
+  const directlyChangedApps = changedApps.filter(app => !app.changeReason || app.changeReason === 'direct');
+  const dependencyAffectedApps = changedApps.filter(app => app.changeReason === 'dependency');
+  
+  // Find changed libraries if dependency tracking is enabled
+  const changedLibraries = enableDependencyTracking ? 
+    findChangedApps(changedFiles, allLibraries) : [];
 
   // Generate summary
   let summary = "";
   if (hasChanges) {
-    summary = `${changedApps.length} Fusion app${changedApps.length === 1 ? "" : "s"} changed: ${appNames.join(", ")}`;
+    const directCount = directlyChangedApps.length;
+    const depCount = dependencyAffectedApps.length;
+    const libCount = changedLibraries.length;
+    
+    const parts = [];
+    if (directCount > 0) {
+      parts.push(`${directCount} app${directCount === 1 ? '' : 's'} changed`);
+    }
+    if (depCount > 0) {
+      parts.push(`${depCount} app${depCount === 1 ? '' : 's'} affected by dependencies`);
+    }
+    if (libCount > 0) {
+      parts.push(`${libCount} librar${libCount === 1 ? 'y' : 'ies'} changed`);
+    }
+    
+    summary = parts.join(', ');
+    if (appNames.length > 0) {
+      summary += `: ${appNames.join(", ")}`;
+    }
   } else {
     summary = "No Fusion apps changed";
   }
@@ -407,6 +207,8 @@ function setOutputs(changedApps, changedFiles = []) {
   setActionOutput("app-types", JSON.stringify([])); // App types - will enhance later if needed
   setActionOutput("matrix", JSON.stringify(matrix));
   setActionOutput("changed-apps-count", changedApps.length.toString());
+  setActionOutput("affected-by-dependencies", JSON.stringify(dependencyAffectedApps));
+  setActionOutput("changed-libraries", JSON.stringify(changedLibraries));
 
   // Also log the summary for debugging
   core.info(`📋 Summary: ${summary}`);
@@ -423,7 +225,13 @@ module.exports = {
   getBaseRef,
   getChangedFiles,
   findFusionApps,
+  findFusionLibrariesFromWorkspace,
+  hasFusionDependencies,
+  buildDependencyGraph,
+  findTransitiveDependents,
+  discoverAllPackages,
   isFusionApp,
   findChangedApps,
+  findChangedAppsWithDependencies,
   setOutputs,
 };

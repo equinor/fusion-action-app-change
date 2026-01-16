@@ -4,11 +4,22 @@ A GitHub Action that intelligently detects changes in Fusion applications within
 
 ## 🚀 Quick Start
 
+### Basic Usage
 ```yaml
 - uses: equinor/fusion-action-app-change@v1
   id: detect
 - if: steps.detect.outputs.has-changes == 'true'
   run: echo "Changed apps: ${{ steps.detect.outputs.changed-app-names }}"
+```
+
+### With Library Dependency Tracking
+```yaml
+- uses: equinor/fusion-action-app-change@v1
+  id: detect
+  with:
+    enable-dependency-tracking: 'true'
+    library-paths: 'packages/*,libs/*'
+- run: echo "Summary: ${{ steps.detect.outputs.summary }}"
 ```
 
 ## 📚 Documentation
@@ -26,7 +37,8 @@ A GitHub Action that intelligently detects changes in Fusion applications within
 - 🔍 **Smart Discovery** - Automatically finds Fusion apps using configurable workspace patterns
 - 📦 **App vs Library Classification** - Distinguishes between deployable apps and shared libraries
 - 📁 **Intelligent Change Detection** - Compares commits to identify modified apps and files
-- 📊 **Detailed Output**: Provides structured JSON output with change metadata and app types
+- � **Dependency Tracking** - Detects when library changes affect dependent apps (NEW!)
+- �📊 **Detailed Output**: Provides structured JSON output with change metadata and app types
 - 🚀 **CI/CD Integration**: Perfect for triggering builds only for changed apps
 - 💬 **PR Comments**: Automatically comments on pull requests with change summaries
 - 🏗️ **Workspace Support**: Handles monorepos with multiple workspace patterns
@@ -63,7 +75,38 @@ jobs:
           echo "Changed apps: ${{ steps.detect.outputs.changed-apps }}"
 ```
 
-### Custom App Paths
+### With Dependency Tracking (NEW!)
+
+Enable automatic detection of apps affected by library changes:
+
+```yaml
+- name: Detect changes with dependency tracking
+  id: detect
+  uses: equinor/fusion-action-app-change@v1
+  with:
+    enable-dependency-tracking: 'true'
+
+- name: Build affected apps
+  if: steps.detect.outputs.has-changes == 'true'
+  run: |
+    echo "Apps to build: ${{ steps.detect.outputs.changed-app-names }}"
+    echo "Dependency-affected apps: ${{ steps.detect.outputs.affected-by-dependencies }}"
+    echo "Changed libraries: ${{ steps.detect.outputs.changed-libraries }}"
+```
+
+**How it works:**
+- Automatically discovers all packages in your workspace (no path configuration needed!)
+- Builds a dependency graph including multiple local linking methods:
+  - **Workspace dependencies**: `workspace:*`, `workspace:^1.0.0`
+  - **File dependencies**: `file:../path/to/package`
+  - **Relative paths**: `../packages/shared-lib`
+  - **Local git repos**: `git+file:///path` or `git+ssh://localhost/repo`
+- When a library changes, automatically includes dependent apps in the build
+- Supports transitive dependencies (Library A → Library B → App C)
+
+### Custom App Paths (Legacy Mode)
+
+For backward compatibility, you can still specify app paths manually:
 
 ```yaml
 - name: Detect changes in specific directories
@@ -72,18 +115,45 @@ jobs:
     app-paths: 'apps,packages/fusion-apps,services'
 ```
 
+### Library Dependency Tracking (NEW!)
+
+Enable automatic detection of apps affected by local library changes:
+
+```yaml
+- name: Detect changes with dependency tracking
+  uses: equinor/fusion-action-app-change@v1
+  with:
+    app-paths: 'apps/*'
+    library-paths: 'packages/*,libs/*'
+    enable-dependency-tracking: 'true'
+```
+
+**How it works:**
+- Scans your workspace for Fusion libraries (packages with Fusion dependencies that aren't apps)
+- Builds a dependency graph based on package.json dependencies
+- When a library changes, automatically includes dependent apps in the change list
+- Supports transitive dependencies (lib A → lib B → app C)
+
+**Example Scenario:**
+1. You edit `packages/shared-utils/src/helpers.js`
+2. Action detects that `apps/dashboard` depends on `@company/shared-utils`
+3. Dashboard app is included in the changed apps list even though no files in `apps/dashboard` changed
+4. Your CI pipeline builds and deploys the dashboard app with the updated library
+
 ## Inputs
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `app-paths` | Comma-separated list of paths to directories containing fusion apps (e.g., `apps,packages/apps`) | No | Auto-detect |
+| `app-paths` | Comma-separated list of paths to directories containing fusion apps (e.g., `apps,packages/apps`). Only used when dependency tracking is disabled. | No | `apps/*` |
+| `enable-dependency-tracking` | Enable automatic workspace discovery and dependency tracking. When `true`, scans entire workspace automatically. | No | `false` |
 | `token` | GitHub token for API access | No | `${{ github.token }}` |
 
 **That's it!** The action automatically:
 - Detects the correct base/head refs for PRs and pushes
-- Finds Fusion apps using smart workspace detection
+- Finds Fusion apps using smart workspace detection (when dependency tracking is enabled) or patterns
 - Uses sensible file patterns for change detection
 - Distinguishes between apps and libraries
+- Supports multiple local dependency linking methods (workspace:, file:, relative paths)
 
 ## Outputs
 
@@ -97,6 +167,8 @@ jobs:
 | `has-changes` | Whether any changes were detected | Boolean |
 | `summary` | Human-readable summary of changes detected | String |
 | `app-types` | JSON array of app names and their types | JSON |
+| `affected-by-dependencies` | JSON array of apps affected by library dependency changes | JSON |
+| `changed-libraries` | JSON array of changed libraries (when dependency tracking enabled) | JSON |
 
 ## Output Schema
 
