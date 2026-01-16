@@ -1,5 +1,11 @@
 # fusion-action-app-change
 
+## 0.2.6
+
+### Patch Changes
+
+- [#12](https://github.com/equinor/fusion-action-app-change/pull/12) [`643a872`](https://github.com/equinor/fusion-action-app-change/commit/643a872eeba71a712a920f6a8c84c813e721a81e) Thanks [@Noggling](https://github.com/Noggling)! - Fix build issues with the latest version of Node.js.
+
 ## 0.2.0
 
 ### Minor Changes
