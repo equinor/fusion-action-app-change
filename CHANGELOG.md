@@ -1,5 +1,15 @@
 # fusion-action-app-change
 
+## 0.1.3
+
+### Patch Changes
+
+- [#6](https://github.com/equinor/fusion-action-app-change/pull/6) [`f23095f`](https://github.com/equinor/fusion-action-app-change/commit/f23095f0a077fc03a11ed971151eccecd1302e02) Thanks [@Noggling](https://github.com/Noggling)! - Fix npm publishing issue in CI workflow
+
+  - Prevent npm publishing attempts for GitHub Action
+  - Configure changeset to only create GitHub releases and tags
+  - Set package as private to avoid npm registry errors
+
 ## 0.1.2
 
 ### Patch Changes
