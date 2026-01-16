@@ -3,13 +3,18 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
-    target: "node20",
+    target: "node20", // Matches your action.yml runtime
+    outDir: "dist", // Output directory
+    emptyOutDir: true, // Clear previous builds
+    minify: false, // Keep readable for debugging
+    sourcemap: true, // Optional: useful for debugging
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      formats: ["cjs"],
+      formats: ["cjs"], // Use CommonJS
       fileName: "index",
     },
     rollupOptions: {
+      // Only Node built-ins remain external
       external: [
         /^node:/,
         "fs",
@@ -29,33 +34,22 @@ export default defineConfig({
         "zlib",
         "buffer",
         "querystring",
-        "undici",
       ],
       output: {
         format: "cjs",
         exports: "auto",
       },
     },
-
-    // THIS IS THE IMPORTANT PART
     commonjsOptions: {
-      include: [/node_modules/],
+      include: [/node_modules/], // Ensure CJS dependencies are bundled
     },
-
-    minify: false,
-    sourcemap: true,
-    outDir: "dist",
-    emptyOutDir: true,
   },
-  // Ensure we can import TypeScript files
   esbuild: {
-    target: "node20",
+    target: "node20", // Makes TypeScript compatible with Node 20
   },
-  // Define globals for Node.js environment
   define: {
-    global: "globalThis",
+    global: "globalThis", // Required for Node environment
   },
-  // Vitest configuration
   test: {
     environment: "node",
     clearMocks: true,
