@@ -64,11 +64,14 @@ async function run() {
     core.setOutput("changed-app-paths", "[]");
     core.setOutput("changed-files", "[]");
     core.setOutput("has-changes", "false");
-    core.setOutput("summary", `Detection failed: ${error instanceof Error ? error.message : String(error)}`);
+    core.setOutput(
+      "summary",
+      `Detection failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     core.setOutput("app-types", "[]");
     core.setOutput("matrix", JSON.stringify({ include: [] }));
     core.setOutput("changed-apps-count", "0");
-    
+
     core.setFailed(
       `❌ Detection failed: ${error instanceof Error ? error.message : String(error)}`,
     );
