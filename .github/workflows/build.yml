@@ -12,35 +12,29 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [24]
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Run linter
-        run: npm run lint
+        run: pnpm run lint
       
       - name: Run tests
-        run: npm run test
+        run: pnpm run test
       
       - name: Check code formatting and style
         run: |
-          npm run check
+          pnpm run check
           # Check for uncommitted changes, excluding node_modules
           CHANGED_FILES=$(git status --porcelain | grep -v "node_modules" || true)
           if [ -n "$CHANGED_FILES" ]; then
             echo "Code is not formatted properly or has linting issues!"
-            echo "Please run 'npm run check' and commit the changes."
+            echo "Please run 'pnpm run check' and commit the changes."
             echo "Changed files:"
             echo "$CHANGED_FILES"
             git diff --name-only | grep -v node_modules
@@ -58,14 +52,8 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Test action (no Fusion apps expected)
         id: test-action
@@ -110,6 +98,9 @@ jobs:
           
           # Basic validation - action should complete successfully
           echo "=== Basic Validation ==="
+          echo "Changed apps count: ${{ steps.test-action.outputs.changed-apps-count }}"
+          echo "Has changes: ${{ steps.test-action.outputs.has-changes }}"  
+          echo  "Summary: ${{ steps.test-action.outputs.summary }}"
           if [ -z "${{ steps.test-action.outputs.summary }}" ]; then
             echo "❌ Summary output is missing"
             exit 1

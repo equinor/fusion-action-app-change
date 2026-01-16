@@ -293,7 +293,7 @@ jobs:
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run tests
 npm test

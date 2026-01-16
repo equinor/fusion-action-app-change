@@ -4,6 +4,19 @@ const path = require("node:path");
 const { execSync } = require("node:child_process");
 
 /**
+ * Helper function to set outputs reliably in both standalone and composite actions
+ * @param {string} name - Output name
+ * @param {string} value - Output value
+ */
+function setActionOutput(name, value) {
+  // Use the standard @actions/core method - it handles GITHUB_OUTPUT correctly in v2+
+  core.setOutput(name, value);
+
+  // Add debugging output to help troubleshoot in GitHub Actions
+  core.info(`📤 Set output ${name}=${value}`);
+}
+
+/**
  * Main function that orchestrates the Fusion app change detection process.
  *
  * This function:
@@ -58,9 +71,20 @@ async function run() {
 
     core.info("✅ Detection completed");
   } catch (error) {
-    core.setFailed(
-      `❌ Detection failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    // Set minimal outputs even on failure to prevent validation errors
+    const errorMessage = `Detection failed: ${error instanceof Error ? error.message : String(error)}`;
+
+    setActionOutput("changed-apps", "[]");
+    setActionOutput("changed-app-names", "");
+    setActionOutput("changed-app-paths", "[]");
+    setActionOutput("changed-files", "[]");
+    setActionOutput("has-changes", "false");
+    setActionOutput("summary", errorMessage);
+    setActionOutput("app-types", "[]");
+    setActionOutput("matrix", JSON.stringify({ include: [] }));
+    setActionOutput("changed-apps-count", "0");
+
+    core.setFailed(`❌ ${errorMessage}`);
   }
 }
 
@@ -362,23 +386,26 @@ function setOutputs(changedApps, changedFiles = []) {
   };
 
   // Generate summary
-  let summary;
+  let summary = "";
   if (hasChanges) {
     summary = `${changedApps.length} Fusion app${changedApps.length === 1 ? "" : "s"} changed: ${appNames.join(", ")}`;
   } else {
     summary = "No Fusion apps changed";
   }
 
-  // Set all outputs
-  core.setOutput("changed-apps", JSON.stringify(changedApps));
-  core.setOutput("changed-app-names", appNames.join(","));
-  core.setOutput("changed-app-paths", JSON.stringify(appPaths));
-  core.setOutput("changed-files", JSON.stringify(changedFiles));
-  core.setOutput("has-changes", hasChanges.toString());
-  core.setOutput("summary", summary);
-  core.setOutput("app-types", JSON.stringify([])); // App types - will enhance later if needed
-  core.setOutput("matrix", JSON.stringify(matrix));
-  core.setOutput("changed-apps-count", changedApps.length.toString());
+  // Set all outputs using reliable method for composite actions
+  setActionOutput("changed-apps", JSON.stringify(changedApps));
+  setActionOutput("changed-app-names", appNames.join(","));
+  setActionOutput("changed-app-paths", JSON.stringify(appPaths));
+  setActionOutput("changed-files", JSON.stringify(changedFiles));
+  setActionOutput("has-changes", hasChanges.toString());
+  setActionOutput("summary", summary);
+  setActionOutput("app-types", JSON.stringify([])); // App types - will enhance later if needed
+  setActionOutput("matrix", JSON.stringify(matrix));
+  setActionOutput("changed-apps-count", changedApps.length.toString());
+
+  // Also log the summary for debugging
+  core.info(`📋 Summary: ${summary}`);
 }
 
 // Run the action

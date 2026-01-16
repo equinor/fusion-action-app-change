@@ -36,10 +36,8 @@ jobs:
         with:
           fetch-depth: 0  # Fetch full history for proper diff
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Detect changes
         id: detect
@@ -120,26 +118,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ${{ matrix.app.path }}/package-lock.json
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Install dependencies
         run: |
           if [ -f "${{ matrix.app.path }}/package.json" ]; then
             cd ${{ matrix.app.path }}
-            npm ci
+            if [ -f "pnpm-lock.yaml" ]; then
+              pnpm install --frozen-lockfile
+            else
+              pnpm install
+            fi
           fi
       
       - name: Build app
         run: |
           if [ -f "${{ matrix.app.path }}/package.json" ]; then
             cd ${{ matrix.app.path }}
-            if npm run | grep -q "build"; then
-              npm run build
+            if pnpm run | grep -q "build"; then
+              pnpm run build
             else
               echo "No build script found, skipping build step"
             fi
@@ -149,8 +147,8 @@ jobs:
         run: |
           if [ -f "${{ matrix.app.path }}/package.json" ]; then
             cd ${{ matrix.app.path }}
-            if npm run | grep -q "test"; then
-              npm run test
+            if pnpm run | grep -q "test"; then
+              pnpm run test
             else
               echo "No test script found, skipping tests"
             fi
