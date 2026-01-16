@@ -13,26 +13,8 @@ export default defineConfig({
       fileName: "index",
     },
     rollupOptions: {
-      // Don't bundle Node.js built-ins and @actions/* dependencies
       external: [
-        // Keep Node.js built-ins as external
-        "node:fs",
-        "node:path",
-        "node:child_process",
-        "node:os",
-        "node:crypto",
-        "node:stream",
-        "node:events",
-        "node:util",
-        "node:timers",
-        "node:assert",
-        "node:http",
-        "node:https",
-        "node:net",
-        "node:tls",
-        "node:zlib",
-        "node:buffer",
-        "node:querystring",
+        /^node:/,
         "fs",
         "path",
         "child_process",
@@ -50,11 +32,13 @@ export default defineConfig({
         "zlib",
         "buffer",
         "querystring",
+
+        // Critical: do not bundle GitHub Actions or undici
+        /^@actions\//,
+        "undici",
       ],
       output: {
-        // Keep dynamic imports (if any) as require() calls
         format: "cjs",
-        // Disable code splitting for single file output
         manualChunks: undefined,
       },
     },
