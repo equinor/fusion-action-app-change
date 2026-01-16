@@ -1,5 +1,15 @@
 # fusion-action-app-change
 
+## 0.1.4
+
+### Patch Changes
+
+- [#8](https://github.com/equinor/fusion-action-app-change/pull/8) [`d0a5280`](https://github.com/equinor/fusion-action-app-change/commit/d0a5280e9bb2fe988e4acf1e78b3df22831fc2c5) Thanks [@Noggling](https://github.com/Noggling)! - Fix tag creation for GitHub Action versioning
+
+  - Update CI workflow condition to create tags after changeset processing
+  - Ensure proper versioning tags are created (v1, v1.2, v1.2.3) for GitHub Actions marketplace
+  - Fix issue where tags weren't created after removing npm publishing step
+
 ## 0.1.3
 
 ### Patch Changes
