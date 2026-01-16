@@ -18,16 +18,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-      
-      - name: Install pnpm
-        run: npm install -g pnpm
-      
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Run linter
         run: pnpm run lint
@@ -60,16 +52,8 @@ jobs:
         with:
           fetch-depth: 0
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      
-      - name: Install pnpm
-        run: npm install -g pnpm
-      
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Test action (no Fusion apps expected)
         id: test-action

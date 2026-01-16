@@ -386,7 +386,7 @@ function setOutputs(changedApps, changedFiles = []) {
   };
 
   // Generate summary
-  let summary;
+  let summary = "";
   if (hasChanges) {
     summary = `${changedApps.length} Fusion app${changedApps.length === 1 ? "" : "s"} changed: ${appNames.join(", ")}`;
   } else {

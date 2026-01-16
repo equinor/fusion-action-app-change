@@ -120,13 +120,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Install dependencies
         run: |
