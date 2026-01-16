@@ -149,6 +149,22 @@ describe("Fusion App Change Detection - Simple Tests", () => {
       expect(result).toEqual(["**/*"]);
       expect(mockCore.warning).toHaveBeenCalled();
     });
+
+    test("should safely handle malicious baseRef input", () => {
+      mockChildProcess.execSync.mockReturnValue("app1/file.ts\napp2/file.js\n");
+
+      // Test with potentially dangerous input that could cause command injection
+      const maliciousInput = "main; rm -rf /; echo dangerous";
+      const result = indexModule.getChangedFiles(maliciousInput);
+
+      expect(result).toEqual(["app1/file.ts", "app2/file.js"]);
+
+      // Verify that execSync was called with safely escaped input
+      expect(mockChildProcess.execSync).toHaveBeenCalledWith(
+        expect.stringContaining("'main; rm -rf /; echo dangerous'"),
+        expect.any(Object),
+      );
+    });
   });
 
   describe("findChangedApps", () => {
