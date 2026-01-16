@@ -36,10 +36,8 @@ jobs:
         with:
           fetch-depth: 0  # Fetch full history for proper diff
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+      - name: Setup Node and Install Dependencies
+        uses: ./.github/actions/node-setup
       
       - name: Detect changes
         id: detect

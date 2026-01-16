@@ -98,6 +98,9 @@ jobs:
           
           # Basic validation - action should complete successfully
           echo "=== Basic Validation ==="
+          echo "Changed apps count: ${{ steps.test-action.outputs.changed-apps-count }}"
+          echo "Has changes: ${{ steps.test-action.outputs.has-changes }}"  
+          echo  "Summary: ${{ steps.test-action.outputs.summary }}"
           if [ -z "${{ steps.test-action.outputs.summary }}" ]; then
             echo "❌ Summary output is missing"
             exit 1

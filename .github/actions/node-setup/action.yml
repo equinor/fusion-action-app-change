@@ -28,4 +28,6 @@ runs:
         
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: |
+        # Install dependencies for the workflow and action
+        pnpm install --frozen-lockfile
