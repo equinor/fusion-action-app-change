@@ -3,12 +3,9 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
-    // GitHub Actions need to be in Node.js format, not browser
     target: "node20",
     lib: {
-      // Entry point is our TypeScript file
       entry: resolve(__dirname, "src/index.ts"),
-      // Single bundle for GitHub Action
       formats: ["cjs"],
       fileName: "index",
     },
@@ -32,23 +29,22 @@ export default defineConfig({
         "zlib",
         "buffer",
         "querystring",
-
-        // Critical: do not bundle GitHub Actions or undici
-        /^@actions\//,
         "undici",
       ],
       output: {
         format: "cjs",
-        manualChunks: undefined,
+        exports: "auto",
       },
     },
-    // Output directory
-    outDir: "dist",
-    // Don't minify for better debugging in GitHub Actions
+
+    // THIS IS THE IMPORTANT PART
+    commonjsOptions: {
+      include: [/node_modules/],
+    },
+
     minify: false,
-    // Generate source maps for debugging
     sourcemap: true,
-    // Clear output directory
+    outDir: "dist",
     emptyOutDir: true,
   },
   // Ensure we can import TypeScript files
