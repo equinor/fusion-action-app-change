@@ -75,6 +75,100 @@ The primary configuration parameter that tells the action where to find your Fus
 - Dynamic pattern generation
 - Programmatic configuration
 
+## Dependency Tracking Configuration
+
+### `enable-dependency-tracking`
+
+Enable automatic workspace discovery and dependency analysis to detect apps affected by library changes.
+
+#### Basic Dependency Tracking
+
+```yaml
+- uses: equinor/fusion-action-app-change@v1
+  with:
+    enable-dependency-tracking: 'true'
+    # No app-paths needed - automatically discovers entire workspace
+```
+
+**Key Features**:
+- ✅ **Zero Configuration**: Automatically discovers all packages in workspace
+- ✅ **Smart Classification**: Distinguishes apps from libraries automatically
+- ✅ **Multi-Link Support**: Handles workspace:*, file:, relative, and git+file dependencies
+- ✅ **Transitive Detection**: Library A → Library B → App C dependency chains
+- ✅ **Build Optimization**: Only builds apps that are actually affected
+
+#### Supported Dependency Types
+
+The action automatically detects and handles various local dependency linking methods:
+
+```yaml
+# package.json example supporting all linking methods:
+{
+  "dependencies": {
+    "@company/ui-lib": "workspace:*",           # Workspace protocol (pnpm/yarn)
+    "@company/utils": "workspace:^1.0.0",       # Workspace with version constraint
+    "shared-components": "file:../packages/ui", # File protocol
+    "build-tools": "../tools/build-utils",      # Relative path
+    "internal-lib": "git+file:../libs/core"     # Git file protocol
+  }
+}
+```
+
+#### Workspace Discovery Process
+
+When dependency tracking is enabled, the action:
+
+1. **Recursively scans** entire workspace for package.json files
+2. **Excludes** common build/cache directories (node_modules, dist, .next, etc.)
+3. **Classifies** packages as Fusion apps vs libraries
+4. **Builds** comprehensive dependency graph
+5. **Analyzes** transitive relationships
+6. **Detects** affected apps when libraries change
+
+#### Performance Optimizations
+
+```yaml
+# The action automatically optimizes for large repositories:
+- uses: equinor/fusion-action-app-change@v1
+  with:
+    enable-dependency-tracking: 'true'
+```
+
+**Built-in Optimizations**:
+- Skips irrelevant directories (node_modules, .git, dist, build)
+- Prevents infinite recursion with depth limits
+- Caches package discovery results during single run
+- Deduplicates packages found through multiple paths
+- Only analyzes packages with Fusion dependencies
+
+#### Hybrid Configuration
+
+You can combine dependency tracking with traditional app-paths for complex scenarios:
+
+```yaml
+- uses: equinor/fusion-action-app-change@v1
+  with:
+    enable-dependency-tracking: 'true'
+    # Dependency tracking takes precedence, but app-paths provides fallback
+    app-paths: 'apps/*,services/*'
+```
+
+**Behavior**: 
+- When `enable-dependency-tracking: 'true'`: Uses workspace discovery (recommended)
+- When `enable-dependency-tracking: 'false'`: Falls back to app-paths patterns
+- This ensures backward compatibility while enabling advanced features
+
+#### Example Output with Dependency Tracking
+
+```yaml
+# When libraries change, affected apps are automatically included:
+outputs:
+  summary: "1 app changed, 2 apps affected by dependencies: shared-ui-lib"
+  changed-app-names: "portal-app,dashboard-app,analytics-app"
+  affected-by-dependencies: '[{"name": "dashboard-app", "changeReason": "dependency"}, {"name": "analytics-app", "changeReason": "dependency"}]'
+  changed-libraries: '[{"name": "shared-ui-lib", "path": "packages/ui-components"}]'
+```
+
 ## Repository Structure Examples
 
 ### Standard Monorepo

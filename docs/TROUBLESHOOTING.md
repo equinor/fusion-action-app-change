@@ -411,6 +411,156 @@ echo
 echo "🎉 Validation complete!"
 ```
 
+### 7. Dependency Tracking Issues
+
+**Problem**: Dependency tracking not working as expected - apps not detected when libraries change.
+
+#### Libraries Not Detected
+
+**Symptoms**:
+```
+📚 Found 0 Fusion libraries
+🔗 Built dependency graph with 0 packages
+```
+
+**Solutions**:
+
+```yaml
+# ✅ Enable dependency tracking first
+- uses: equinor/fusion-action-app-change@v1
+  with:
+    enable-dependency-tracking: 'true'
+```
+
+**Check Library Classification**:
+```bash
+# Verify libraries have Fusion dependencies but are not classified as apps
+find . -name "package.json" -exec grep -l "@equinor/fusion" {} \;
+
+# Check if library has app indicators that misclassify it
+jq -r 'if .dependencies."@equinor/fusion-framework-cli" then "Has CLI (App)" else "No CLI" end' packages/*/package.json
+```
+
+#### Apps Not Affected by Library Changes
+
+**Symptoms**:
+```
+📚 Changed libraries: shared-ui-lib
+🎯 Apps affected by dependencies: (none)
+```
+
+**Solutions**:
+
+**Check Dependency Links**:
+```bash
+# Verify apps actually depend on the changed library
+grep -r "shared-ui-lib" apps/*/package.json
+grep -r "workspace:" apps/*/package.json  # Check workspace dependencies
+grep -r "file:" apps/*/package.json       # Check file dependencies
+```
+
+**Verify Dependency Graph**:
+```yaml
+# Enable debug mode to see dependency graph construction
+env:
+  ACTIONS_STEP_DEBUG: true
+```
+
+**Common Dependency Linking Issues**:
+```json
+{
+  "dependencies": {
+    // ❌ External dependency - not tracked
+    "shared-lib": "^1.0.0",
+    
+    // ✅ Workspace dependency - tracked  
+    "shared-lib": "workspace:*",
+    
+    // ✅ File dependency - tracked
+    "shared-lib": "file:../packages/shared-lib",
+    
+    // ✅ Relative dependency - tracked
+    "shared-lib": "../shared/lib"
+  }
+}
+```
+
+#### Performance Issues with Large Workspaces
+
+**Symptoms**:
+```
+⏱️ Workspace discovery taking too long
+🔍 Scanning directories: 5000+ found
+```
+
+**Solutions**:
+
+**Check Excluded Directories**:
+```bash
+# Verify exclusion patterns are working
+find . -name "node_modules" -type d | wc -l  # Should not be scanned
+find . -name "dist" -type d | wc -l         # Should not be scanned
+find . -name ".next" -type d | wc -l        # Should not be scanned
+```
+
+**Use Selective Patterns** (if workspace discovery too slow):
+```yaml
+# Fall back to traditional app-paths for very large repos
+- uses: equinor/fusion-action-app-change@v1
+  with:
+    enable-dependency-tracking: 'false'  # Disable auto-discovery
+    app-paths: 'apps/*,services/*'       # Use targeted patterns
+```
+
+#### Transitive Dependencies Not Detected
+
+**Problem**: Library A → Library B → App C chain not working.
+
+**Debug Steps**:
+```yaml
+- name: Debug dependency chain
+  run: |
+    echo "🔍 Checking dependency chain..."
+    
+    # Check if Library A has Fusion dependencies
+    jq '.dependencies // {} | keys | map(select(contains("fusion")))' packages/library-a/package.json
+    
+    # Check if Library B depends on Library A
+    jq '.dependencies // {} | keys | map(select(contains("library-a")))' packages/library-b/package.json
+    
+    # Check if App C depends on Library B
+    jq '.dependencies // {} | keys | map(select(contains("library-b")))' apps/app-c/package.json
+```
+
+**Common Issues**:
+- **Missing Fusion Dependencies**: All packages in chain need `@equinor/fusion-*` dependencies
+- **Incorrect Classification**: Libraries misclassified as apps or non-Fusion packages
+- **Broken Links**: Dependencies not using supported linking methods (workspace:, file:, relative)
+
+#### Mixed Linking Methods
+
+**Problem**: Some dependencies detected, others not.
+
+**Verification**:
+```bash
+# Check all dependency linking methods in use
+grep -r "workspace:" . --include="package.json"
+grep -r "file:" . --include="package.json" 
+grep -r "\.\.\/" . --include="package.json"  # Relative paths
+```
+
+**Standardize Linking** (recommended):
+```json
+{
+  "dependencies": {
+    // ✅ Consistent workspace protocol (pnpm/yarn)
+    "@company/lib-a": "workspace:*",
+    "@company/lib-b": "workspace:^1.0.0",
+    "@company/lib-c": "workspace:~1.2.0"
+  }
+}
+```
+
 ## Getting Help
 
 If you're still experiencing issues:
