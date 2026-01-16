@@ -9,20 +9,11 @@ const { execSync } = require("node:child_process");
  * @param {string} value - Output value
  */
 function setActionOutput(name, value) {
-  // Use both methods to ensure compatibility
+  // Use the standard @actions/core method - it handles GITHUB_OUTPUT correctly in v2+
   core.setOutput(name, value);
 
-  // Also set using GITHUB_OUTPUT environment variable for composite actions
-  const outputFile = process.env.GITHUB_OUTPUT;
-  if (outputFile) {
-    try {
-      const outputLine = `${name}=${value}\n`;
-      fs.appendFileSync(outputFile, outputLine, "utf8");
-      core.info(`📤 Set output ${name}=${value}`);
-    } catch (error) {
-      core.warning(`Failed to write to GITHUB_OUTPUT file: ${error.message}`);
-    }
-  }
+  // Add debugging output to help troubleshoot in GitHub Actions
+  core.info(`📤 Set output ${name}=${value}`);
 }
 
 /**
