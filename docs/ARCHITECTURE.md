@@ -4,6 +4,32 @@
 
 The Fusion App Change Detection Action is designed as a lightweight, zero-dependency GitHub Action that intelligently identifies changes in Fusion applications within a repository. The architecture emphasizes simplicity, reliability, and performance.
 
+## Implementation Architecture
+
+### Source Code Organization
+
+The action is implemented in TypeScript using a modular architecture for maintainability and testability:
+
+```
+src/
+├── index.ts              # Main orchestration and entry point
+├── types/index.ts        # TypeScript type definitions
+├── core/
+│   ├── git.ts           # Git operations and diff analysis
+│   ├── fusion-app.ts    # App discovery and classification  
+│   └── outputs.ts       # GitHub Actions output handling
+└── utils/               # Utility functions (reserved)
+```
+
+**Module Responsibilities**:
+- **index.ts**: Main orchestration, error handling, re-exports for testing
+- **types/**: All TypeScript interfaces (FusionApp, PackageJson, etc.)
+- **core/git.ts**: Base reference detection and file change analysis
+- **core/fusion-app.ts**: App pattern matching and classification logic
+- **core/outputs.ts**: GitHub Actions output formatting and error handling
+
+**Build Process**: The modular source is bundled into `dist/index.js` using Vite with TypeScript compilation, external Node.js built-ins, and all dependencies included for GitHub Actions compatibility.
+
 ## High-Level Architecture
 
 ```mermaid
@@ -448,11 +474,31 @@ function validateAppStructure(appPath) {
 
 ### Test Strategy
 
+The codebase uses **Vitest** for testing with comprehensive coverage across all modules:
+
+- **24 test cases** covering all public functions and edge cases
+- **Modular testing**: Each core module (git, fusion-app, outputs) tested via main exports
+- **Mocked dependencies**: Uses Vitest mocking for @actions/core, fs, and child_process
+- **Type safety**: Full TypeScript testing with proper type checking
+
+**Test Structure**:
+```typescript
+// src/index.test.ts - Single comprehensive test suite
+describe("Fusion App Change Detection", () => {
+  describe("getBaseRef", () => { /* 4 tests */ });
+  describe("getChangedFiles", () => { /* 4 tests */ });
+  describe("isFusionApp", () => { /* 6 tests */ });
+  describe("findFusionApps", () => { /* 4 tests */ });
+  describe("findChangedApps", () => { /* 4 tests */ });
+  describe("setOutputs", () => { /* 2 tests */ });
+});
+```
+
 ```mermaid
 flowchart TD
     subgraph "Unit Tests"
         U1["Classification Logic"]
-        U2["Directory Scanning"]
+        U2["Directory Scanning"] 
         U3["Git Operations"]
         U4["Output Generation"]
     end
