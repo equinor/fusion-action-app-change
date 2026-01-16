@@ -3,19 +3,19 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
-    target: "node20", // Matches your action.yml runtime
-    outDir: "dist", // Output directory
-    emptyOutDir: true, // Clear previous builds
-    minify: false, // Keep readable for debugging
-    sourcemap: true, // Optional: useful for debugging
+    target: "node20",
+    outDir: "dist",
+    emptyOutDir: true,
+    minify: false,
+    sourcemap: true,
     lib: {
       entry: resolve(__dirname, "src/index.ts"),
-      formats: ["cjs"], // Use CommonJS
+      formats: ["cjs"],
       fileName: "index",
     },
     rollupOptions: {
-      // Only Node built-ins remain external
       external: [
+        // Only Node built-ins remain external
         /^node:/,
         "fs",
         "path",
@@ -41,14 +41,14 @@ export default defineConfig({
       },
     },
     commonjsOptions: {
-      include: [/node_modules/], // Ensure CJS dependencies are bundled
+      include: [/node_modules/], // Bundle all CJS dependencies
     },
   },
   esbuild: {
-    target: "node20", // Makes TypeScript compatible with Node 20
+    target: "node20",
   },
   define: {
-    global: "globalThis", // Required for Node environment
+    global: "globalThis",
   },
   test: {
     environment: "node",

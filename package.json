@@ -34,7 +34,9 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^2.0.2",
-    "shell-quote": "^1.8.3"
+    "shell-quote": "^1.8.3",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
