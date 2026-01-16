@@ -158,11 +158,11 @@ describe("Fusion App Change Detection - Simple Tests", () => {
       const result = indexModule.getChangedFiles(maliciousInput);
 
       expect(result).toEqual(["app1/file.ts", "app2/file.js"]);
-      
+
       // Verify that execSync was called with safely escaped input
       expect(mockChildProcess.execSync).toHaveBeenCalledWith(
         expect.stringContaining("'main; rm -rf /; echo dangerous'"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });

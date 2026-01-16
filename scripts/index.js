@@ -132,7 +132,7 @@ function getChangedFiles(baseRef) {
   try {
     // Sanitize baseRef to prevent command injection
     const safeBaseRef = quote([baseRef]);
-    
+
     // Try different git diff approaches
     const commands = [
       `git diff --name-only ${safeBaseRef}...HEAD`,
