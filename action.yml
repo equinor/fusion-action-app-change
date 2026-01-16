@@ -52,9 +52,8 @@ runs:
         npm install -g pnpm
         pnpm install --frozen-lockfile --prod
         
-    - name: Run action
+    - name: Run Fusion app change detection
       shell: bash
-      id: fusion-detect
       run: |
         cd "$GITHUB_ACTION_PATH"
         node scripts/index.js
