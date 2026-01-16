@@ -43,17 +43,5 @@ outputs:
     description: 'JSON array of app names and their types (fusion-cli-app, react-fusion-app, etc.)'
 
 runs:
-  using: 'composite'
-  steps:
-    - name: Install dependencies
-      shell: bash
-      run: |
-        cd "$GITHUB_ACTION_PATH"
-        npm install -g pnpm
-        pnpm install --frozen-lockfile --prod
-        
-    - name: Run Fusion app change detection
-      shell: bash
-      run: |
-        cd "$GITHUB_ACTION_PATH"
-        node scripts/index.js
+  using: 'node20'
+  main: 'scripts/index.js'
