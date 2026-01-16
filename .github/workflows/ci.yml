@@ -52,20 +52,21 @@ jobs:
         id: dist-changes
         run: |
           if [[ -n $(git status --porcelain dist/) ]]; then
-            echo "has-changes=true" >> $GITHUB_OUTPUT
-            echo "dist/ files need to be updated"
+            echo "❌ dist/ files are out of date!"
+            echo "Please run 'pnpm run build' and commit the updated dist/ files."
+            echo ""
+            echo "Changed files:"
+            git status --porcelain dist/
+            echo ""
+            echo "To fix this:"
+            echo "1. Run: pnpm run build"
+            echo "2. Run: git add dist/"  
+            echo "3. Run: git commit -m 'build: update dist files'"
+            echo "4. Push your changes"
+            exit 1
           else
-            echo "has-changes=false" >> $GITHUB_OUTPUT
-            echo "dist/ files are up to date"
+            echo "✅ dist/ files are up to date"
           fi
-
-      # Commit updated dist files if needed
-      - name: Commit updated dist files
-        if: steps.dist-changes.outputs.has-changes == 'true'
-        run: |
-          git add dist/
-          git commit -m "build: update dist files for release"
-          git push
 
       # Process changesets: create version PR or create GitHub releases
       - name: Create Release Pull Request or Create GitHub Release
