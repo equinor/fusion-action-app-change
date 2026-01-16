@@ -43,8 +43,8 @@ jobs:
       - name: Run linter
         run: pnpm run lint
 
-      # Process changesets: create version PR or publish new version
-      - name: Create Release Pull Request or Publish new version
+      # Process changesets: create version PR or create GitHub releases
+      - name: Create Release Pull Request or Create GitHub Release
         id: changesets
         uses: changesets/action@v1
         with:
@@ -52,7 +52,6 @@ jobs:
           createGithubReleases: true
           setupGitUser: false
           version: pnpm run changeset:version
-          publish: pnpm run changeset:publish
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
