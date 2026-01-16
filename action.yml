@@ -53,7 +53,8 @@ runs:
         pnpm install --frozen-lockfile --prod
         
     - name: Run action
-      shell: bash  
+      shell: bash
+      id: fusion-detect
       run: |
         cd "$GITHUB_ACTION_PATH"
         node scripts/index.js
