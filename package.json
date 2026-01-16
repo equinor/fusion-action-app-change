@@ -20,11 +20,17 @@
     "type": "git",
     "url": "git+https://github.com/equinor/fusion-action-app-change.git"
   },
-  "keywords": ["github-action", "fusion", "change-detection", "continuous-deployment"],
+  "keywords": [
+    "github-action",
+    "fusion",
+    "change-detection",
+    "continuous-deployment"
+  ],
   "author": "Equinor",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^2.0.2"
+    "@actions/core": "^2.0.2",
+    "shell-quote": "^1.8.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

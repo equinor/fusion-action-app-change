@@ -2,6 +2,7 @@ const core = require("@actions/core");
 const fs = require("node:fs");
 const path = require("node:path");
 const { execSync } = require("node:child_process");
+const { quote } = require("shell-quote");
 
 /**
  * Helper function to set outputs reliably in both standalone and composite actions
@@ -129,10 +130,13 @@ function getBaseRef() {
  */
 function getChangedFiles(baseRef) {
   try {
+    // Sanitize baseRef to prevent command injection
+    const safeBaseRef = quote([baseRef]);
+    
     // Try different git diff approaches
     const commands = [
-      `git diff --name-only ${baseRef}...HEAD`,
-      `git diff --name-only ${baseRef} HEAD`,
+      `git diff --name-only ${safeBaseRef}...HEAD`,
+      `git diff --name-only ${safeBaseRef} HEAD`,
       "git diff --name-only HEAD~1 HEAD",
     ];
 
