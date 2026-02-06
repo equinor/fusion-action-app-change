@@ -11,7 +11,10 @@ inputs:
     description: 'Comma-separated list of paths to directories containing fusion apps (e.g., "apps,packages/apps"). If not specified, will auto-discover.'
     required: false
     default: ''
-  
+  mono:
+    description: 'Whether to treat the repository as a monorepo and look for apps in multiple directories (true/false). Default is false.'
+    required: false
+    default: 'false'
   token:
     description: 'GitHub token for API access'
     required: false

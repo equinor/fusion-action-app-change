@@ -22202,7 +22202,13 @@ function setErrorOutputs(errorMessage) {
 async function run() {
   try {
     coreExports.info("🔍 Detecting changed Fusion apps...");
-    const appPaths = coreExports.getInput("app-paths") || "apps/*";
+    const monoInput = process.env.MONO || coreExports.getInput("mono");
+    let appPaths;
+    if (monoInput.toLowerCase() === "true") {
+      appPaths = coreExports.getInput("app-paths") || "apps/*";
+    } else {
+      appPaths = ".";
+    }
     const baseRef = getBaseRef();
     let appPatterns = [];
     if (appPaths.startsWith("[") && appPaths.endsWith("]")) {

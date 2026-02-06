@@ -18,8 +18,14 @@ async function run(): Promise<void> {
   try {
     core.info("🔍 Detecting changed Fusion apps...");
 
+    const monoInput = process.env.MONO || core.getInput("mono");
     // Get inputs with smart defaults
-    const appPaths = core.getInput("app-paths") || "apps/*";
+    let appPaths: string;
+    if (monoInput.toLowerCase() === "true") {
+      appPaths = core.getInput("app-paths") || "apps/*";
+    } else {
+      appPaths = ".";
+    }
     const baseRef = getBaseRef();
 
     // Parse app patterns

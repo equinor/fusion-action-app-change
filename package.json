@@ -16,8 +16,7 @@
     "package": "vite build",
     "build": "npm run type-check && npm run check && npm run test && npm run package",
     "changeset": "changeset",
-    "changeset:version": "changeset version",
-    "changeset:publish": "changeset publish",
+    "changeset:version": "changeset version && pnpm install --no-frozen-lockfile && pnpm run build",
     "release": "npm run build && npm run changeset:publish"
   },
   "repository": {
