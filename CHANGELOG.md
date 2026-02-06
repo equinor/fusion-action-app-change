@@ -1,5 +1,11 @@
 # fusion-action-app-change
 
+## 0.3.0
+
+### Minor Changes
+
+- [`ebd918b`](https://github.com/equinor/fusion-action-app-change/commit/ebd918b9c53fb5b7613a5757123df0e6e86b76e1) Thanks [@Noggling](https://github.com/Noggling)! - Add support for mono repository mode through MONO environment variable or mono input parameter. When mono mode is enabled, app-paths defaults to "apps/\*", otherwise defaults to "." for single-app repositories. Also update changeset:version script to automatically run pnpm install and build after versioning.
+
 ## 0.2.6
 
 ### Patch Changes
