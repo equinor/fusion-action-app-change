@@ -145,6 +145,11 @@ export function findChangedApps(changedFiles: string[], allApps: FusionApp[]): F
       const normalizedFile = file.startsWith("./") ? file.slice(2) : file;
       const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
 
+      // Special case: root-level app (path is ".")
+      if (normalizedAppPath === ".") {
+        return true; // All files belong to root-level app
+      }
+
       return (
         normalizedFile.startsWith(`${normalizedAppPath}/`) ||
         normalizedFile === normalizedAppPath ||
