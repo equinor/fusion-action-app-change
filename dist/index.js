@@ -21875,6 +21875,9 @@ function findChangedApps(changedFiles, allApps) {
     const isChanged = changedFiles.some((file2) => {
       const normalizedFile = file2.startsWith("./") ? file2.slice(2) : file2;
       const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
+      if (normalizedAppPath === ".") {
+        return true;
+      }
       return normalizedFile.startsWith(`${normalizedAppPath}/`) || normalizedFile === normalizedAppPath || file2 === "**/*";
     });
     if (isChanged) {

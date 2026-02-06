@@ -1,5 +1,11 @@
 # fusion-action-app-change
 
+## 0.3.1
+
+### Patch Changes
+
+- [`5b354dd`](https://github.com/equinor/fusion-action-app-change/commit/5b354dd1d2c557698ae4e6c640d6a418225f03c3) Thanks [@Noggling](https://github.com/Noggling)! - Fix bug where single-app repositories (app path ".") were not detecting file changes correctly. The change detection now properly handles root-level apps by recognizing that all changed files belong to the root-level app.
+
 ## 0.3.0
 
 ### Minor Changes
