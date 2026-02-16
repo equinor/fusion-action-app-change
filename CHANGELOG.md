@@ -1,5 +1,13 @@
 # fusion-action-app-change
 
+## 1.0.0
+
+### Major Changes
+
+- [`656e895`](https://github.com/equinor/fusion-action-app-change/commit/656e8958c5500771fcc657b260bca5557381e43a) Thanks [@Noggling](https://github.com/Noggling)! - Initial Release v1.0.0
+
+  This is the first major release of fusion-action-app-change, providing GitHub Actions functionality for managing Fusion app changes.
+
 ## 0.3.1
 
 ### Patch Changes
