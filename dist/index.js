@@ -21873,6 +21873,7 @@ function findChangedApps(changedFiles, allApps) {
   const isDebugMode = coreExports.isDebug();
   if (isDebugMode) {
     coreExports.debug(`DEBUG: findChangedApps#changedFiles: [${JSON.stringify(changedFiles)}]`);
+    coreExports.debug(`DEBUG: findChangedApps#allApps: [${JSON.stringify(allApps)}]`);
   }
   const changedApps = [];
   for (const app of allApps) {
@@ -22215,19 +22216,13 @@ function setErrorOutputs(errorMessage) {
 async function run() {
   try {
     coreExports.info("🔍 Detecting changed Fusion apps...");
-    const monoInput = process.env.MONO || coreExports.getInput("mono");
-    let appPaths;
-    if (monoInput.toLowerCase() === "true") {
-      appPaths = coreExports.getInput("app-paths") || "apps/*";
-    } else {
-      appPaths = ".";
-    }
     const baseRef = getBaseRef();
+    const appPathsInput = coreExports.getInput("app-paths");
     let appPatterns = [];
-    if (appPaths.startsWith("[") && appPaths.endsWith("]")) {
-      appPatterns = JSON.parse(appPaths);
+    if (!appPathsInput || appPathsInput.trim() === "") {
+      appPatterns = ["."];
     } else {
-      appPatterns = [appPaths];
+      appPatterns = appPathsInput.split(",").map((p) => p.trim());
     }
     const changedFiles = getChangedFiles(baseRef);
     const allApps = findFusionApps(appPatterns);

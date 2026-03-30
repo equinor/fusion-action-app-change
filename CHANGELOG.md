@@ -1,5 +1,16 @@
 # fusion-action-app-change
 
+## 2.0.0
+
+### Major Changes
+
+- [#20](https://github.com/equinor/fusion-action-app-change/pull/20) [`184f9fa`](https://github.com/equinor/fusion-action-app-change/commit/184f9fac21067aac6b553d46919a3cc65c361f9b) Thanks [@asbjornhaland](https://github.com/asbjornhaland)! - Remove the `mono` input and simplify app discovery to use `app-paths`
+  directly, defaulting to `.` when no paths are provided. This changes the
+  action's configuration and default detection behavior, and also adds extra
+  debug logging for changed file and app matching.
+
+  Provide `app-paths` if your apps are not in the path `"."`.
+
 ## 1.0.1
 
 ### Patch Changes
