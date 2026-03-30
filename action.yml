@@ -8,13 +8,9 @@ branding:
 
 inputs:
   app-paths:
-    description: 'Comma-separated list of paths to directories containing fusion apps (e.g., "apps,packages/apps"). If not specified, will auto-discover.'
+    description: 'Comma-separated list of paths to directories containing fusion apps (e.g., "apps,packages/apps"). If not specified, will use ".".'
     required: false
     default: ''
-  mono:
-    description: 'Whether to treat the repository as a monorepo and look for apps in multiple directories (true/false). Default is false.'
-    required: false
-    default: 'false'
   token:
     description: 'GitHub token for API access'
     required: false
@@ -23,25 +19,25 @@ inputs:
 outputs:
   changed-apps:
     description: 'JSON array of changed fusion apps with their metadata'
-  
+
   changed-apps-count:
     description: 'Number of changed fusion apps detected'
-  
+
   changed-app-names:
     description: 'Comma-separated list of changed app names'
-  
+
   changed-app-paths:
     description: 'JSON array of changed app root paths'
-  
+
   changed-files:
     description: 'JSON array of all changed files'
-  
+
   has-changes:
     description: 'Whether any changes were detected (true/false)'
-  
+
   summary:
     description: 'Human-readable summary of changes detected'
-  
+
   app-types:
     description: 'JSON array of app names and their types (fusion-cli-app, react-fusion-app, etc.)'
 

@@ -14,9 +14,10 @@ A GitHub Action that intelligently detects changes in Fusion applications within
 ## 📚 Documentation
 
 - **[Configuration Guide](docs/CONFIGURATION.md)** - Detailed configuration options and patterns
-- **[API Documentation](docs/API.md)** - Complete input/output reference and function API  
+- **[API Documentation](docs/API.md)** - Complete input/output reference and function API
 - **[Examples & Use Cases](docs/EXAMPLES.md)** - Real-world workflow examples
-- **[Architecture Overview](docs/ARCHITECTURE.md)** - Technical architecture and design decisions\n- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Architecture Overview](docs/ARCHITECTURE.md)** - Technical architecture and design decisions
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute to this project
 - **[Security Policy](SECURITY.md)** - Security considerations and reporting
 
@@ -51,12 +52,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Detect changes
         id: detect
         uses: equinor/fusion-action-app-change@v1
         # That's it! No configuration needed for most cases
-      
+
       - name: Build changed apps
         if: steps.detect.outputs.has-changes == 'true'
         run: |
@@ -76,7 +77,7 @@ jobs:
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
-| `app-paths` | Comma-separated list of paths to directories containing fusion apps (e.g., `apps,packages/apps`) | No | Auto-detect |
+| `app-paths` | Comma-separated list of paths to directories containing fusion apps (e.g., `apps,packages/apps`) | No | "." |
 | `token` | GitHub token for API access | No | `${{ github.token }}` |
 
 **That's it!** The action automatically:
@@ -106,7 +107,7 @@ jobs:
 [
   {
     "name": "my-fusion-app",
-    "path": "apps/my-fusion-app", 
+    "path": "apps/my-fusion-app",
     "manifestPath": "apps/my-fusion-app/app-manifest.json",
     "manifest": {
       "key": "my-fusion-app",
@@ -141,7 +142,7 @@ jobs:
 The action classifies discovered packages into the following types:
 
 - **`fusion-cli-app`**: Uses `@equinor/fusion-framework-cli` for building
-- **`react-fusion-app`**: React-based Fusion application  
+- **`react-fusion-app`**: React-based Fusion application
 - **`fusion-app`**: Generic Fusion application with app-specific scripts
 - **`fusion-library`**: Shared library/components (not deployable)
 
@@ -178,7 +179,7 @@ This allows the action to work with various monorepo structures:
 monorepo/
 ├── apps/
 │   ├── portal-app/           # ✅ Detected as fusion-cli-app
-│   └── dashboard/            # ✅ Detected as react-fusion-app  
+│   └── dashboard/            # ✅ Detected as react-fusion-app
 ├── packages/
 │   ├── fusion-components/    # ❌ Skipped (fusion-library)
 │   └── app-shell/            # ✅ Detected if has CLI/scripts
@@ -230,12 +231,12 @@ jobs:
     outputs:
       changed-apps: ${{ steps.detect.outputs.changed-apps }}
       has-changes: ${{ steps.detect.outputs.has-changes }}
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Detect changes
         id: detect
         uses: equinor/fusion-action-app-change@v1
@@ -244,14 +245,14 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         app: ${{ fromJson(needs.detect-changes.outputs.changed-apps) }}
-    
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build ${{ matrix.app.name }}
         run: |
           cd ${{ matrix.app.path }}
@@ -268,7 +269,7 @@ jobs:
   with:
     script: |
       const apps = JSON.parse('${{ steps.detect.outputs.changed-apps }}');
-      
+
       if (apps.length === 0) {
         await github.rest.issues.createComment({
           issue_number: context.issue.number,
