@@ -1,5 +1,11 @@
 # fusion-action-app-change
 
+## 1.0.1
+
+### Patch Changes
+
+- [#18](https://github.com/equinor/fusion-action-app-change/pull/18) [`4336715`](https://github.com/equinor/fusion-action-app-change/commit/43367159ec0a7523be17857a7d7f6c059defefd1) Thanks [@asbjornhaland](https://github.com/asbjornhaland)! - Add debug messages when the action is ran in debug mode.
+
 ## 1.0.0
 
 ### Major Changes
