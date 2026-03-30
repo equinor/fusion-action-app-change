@@ -138,12 +138,23 @@ export function isFusionApp(packageJson: PackageJson): boolean {
  * - Handles special cases like universal wildcards (all files changed)
  */
 export function findChangedApps(changedFiles: string[], allApps: FusionApp[]): FusionApp[] {
+  const isDebugMode = core.isDebug();
+  if (isDebugMode) {
+    core.debug(`DEBUG: findChangedApps#changedFiles: [${JSON.stringify(changedFiles)}]`);
+  }
   const changedApps: FusionApp[] = [];
 
   for (const app of allApps) {
+    const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
+    if (isDebugMode) {
+      core.debug(`DEBUG: findChangedApps#normalizedAppPath: [${normalizedAppPath}]`);
+    }
+
     const isChanged = changedFiles.some((file) => {
       const normalizedFile = file.startsWith("./") ? file.slice(2) : file;
-      const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
+      if (isDebugMode) {
+        core.debug(`DEBUG: findChangedApps#normalizedFile: [${normalizedFile}]`);
+      }
 
       // Special case: root-level app (path is ".")
       if (normalizedAppPath === ".") {
