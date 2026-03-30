@@ -14,13 +14,8 @@ The primary configuration parameter that tells the action where to find your Fus
 
 ```yaml
 - uses: equinor/fusion-action-app-change@v1
-  # No configuration needed - uses intelligent defaults
+  # No configuration needed - uses "."
 ```
-
-**Auto-detection Strategy**:
-1. Searches for common app directory patterns: `apps/*`, `packages/*`, `src/*`
-2. Validates each directory using Fusion app classification logic
-3. Excludes libraries and non-app packages automatically
 
 #### Single Directory Pattern
 
@@ -65,7 +60,7 @@ The primary configuration parameter that tells the action where to find your Fus
     app-paths: |
       [
         "apps/*",
-        "packages/fusion-apps/*", 
+        "packages/fusion-apps/*",
         "services/frontend/*"
       ]
 ```
@@ -85,7 +80,7 @@ my-fusion-monorepo/
 │   ├── portal-dashboard/     # ✅ Detected
 │   │   ├── package.json
 │   │   └── src/
-│   ├── analytics-app/        # ✅ Detected  
+│   ├── analytics-app/        # ✅ Detected
 │   │   ├── package.json
 │   │   └── src/
 │   └── user-management/      # ✅ Detected
@@ -111,7 +106,7 @@ enterprise-fusion-apps/
 ├── domains/
 │   ├── hse/
 │   │   ├── safety-dashboard/     # ✅ App
-│   │   └── incident-tracker/     # ✅ App  
+│   │   └── incident-tracker/     # ✅ App
 │   ├── operations/
 │   │   ├── drilling-monitor/     # ✅ App
 │   │   └── production-dashboard/ # ✅ App
@@ -142,7 +137,7 @@ fusion-workspace/
 ├── backend/
 │   └── services/
 │       ├── api-gateway/          # ✅ If has fusion deps
-│       └── auth-service/         # ✅ If has fusion deps  
+│       └── auth-service/         # ✅ If has fusion deps
 └── mobile/
     └── fusion-mobile-app/        # ✅ If has fusion deps
 ```
@@ -208,7 +203,7 @@ Must have **at least one** of these indicators:
 }
 ```
 
-##### Configured Apps  
+##### Configured Apps
 ```json
 {
   "fusion": {
@@ -248,7 +243,7 @@ Packages are **excluded** as libraries if:
 {
   \"name\": \"@company/fusion-components\",
   \"main\": \"dist/index.js\",
-  \"module\": \"dist/index.esm.js\",  
+  \"module\": \"dist/index.esm.js\",
   \"private\": false,
   \"dependencies\": {
     \"@equinor/fusion-framework\": \"^1.0.0\"
@@ -306,7 +301,7 @@ strategy:
   matrix:
     pattern:
       - 'frontend/apps/*'
-      - 'backend/services/*' 
+      - 'backend/services/*'
       - 'mobile/apps/*'
 
 steps:
@@ -331,9 +326,9 @@ steps:
 
 2. **Verify Pattern Syntax**:
    ```yaml
-   # ❌ Wrong - searches FOR directory named 'apps'  
+   # ❌ Wrong - searches FOR directory named 'apps'
    app-paths: 'apps'
-   
+
    # ✅ Correct - searches INSIDE apps directory
    app-paths: 'apps/*'
    ```
@@ -382,7 +377,7 @@ steps:
    {
      // These indicate library (will be excluded):
      "main": "dist/index.js",
-     "module": "dist/index.esm.js", 
+     "module": "dist/index.esm.js",
      "exports": { ".": "./dist/index.js" },
      "private": false  // + library structure
    }
@@ -396,7 +391,7 @@ steps:
 # ❌ Slow on large repos
 app-paths: '**/apps/*'
 
-# ✅ Fast and specific  
+# ✅ Fast and specific
 app-paths: 'frontend/apps/*,backend/services/*,mobile/apps/*'
 ```
 

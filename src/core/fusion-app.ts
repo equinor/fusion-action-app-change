@@ -141,6 +141,7 @@ export function findChangedApps(changedFiles: string[], allApps: FusionApp[]): F
   const isDebugMode = core.isDebug();
   if (isDebugMode) {
     core.debug(`DEBUG: findChangedApps#changedFiles: [${JSON.stringify(changedFiles)}]`);
+    core.debug(`DEBUG: findChangedApps#allApps: [${JSON.stringify(allApps)}]`);
   }
   const changedApps: FusionApp[] = [];
 

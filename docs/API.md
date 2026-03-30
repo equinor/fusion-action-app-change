@@ -7,7 +7,7 @@
 #### `app-paths`
 - **Type**: `string`
 - **Required**: No
-- **Default**: Auto-detection
+- **Default**: "."
 - **Description**: Comma-separated list of directory patterns where Fusion apps are located
 
 **Supported Formats**:
@@ -32,7 +32,7 @@ app-paths: '["apps/*", "packages/apps/*"]'
 - `**/apps/*` - Recursive search (use with caution on large repos)
 
 #### `token`
-- **Type**: `string`  
+- **Type**: `string`
 - **Required**: No
 - **Default**: `${{ github.token }}`
 - **Description**: GitHub token for API access (automatically provided by GitHub Actions)
@@ -57,7 +57,7 @@ interface AppObject {
 ```json
 [
   {
-    "name": "portal-dashboard", 
+    "name": "portal-dashboard",
     "path": "apps/portal-dashboard"
   },
   {
@@ -72,7 +72,7 @@ interface AppObject {
 - **Description**: Simple list of app names for easy consumption
 - **Example**: `"portal-dashboard,analytics-app,user-management"`
 
-##### `changed-app-paths` 
+##### `changed-app-paths`
 - **Type**: `JSON Array<string>`
 - **Description**: Array of relative paths to changed app directories
 - **Example**: `["apps/portal-dashboard", "packages/apps/analytics"]`
@@ -90,7 +90,7 @@ interface AppObject {
 ##### `summary`
 - **Type**: `string`
 - **Description**: Human-readable summary of changes
-- **Examples**: 
+- **Examples**:
   - `"3 Fusion apps changed: portal-dashboard, analytics-app, user-management"`
   - `"No Fusion apps changed"`
 
@@ -149,7 +149,7 @@ Main entry point that orchestrates the entire detection process.
 5. Identify changed apps
 6. Set GitHub Actions outputs
 
-**Error Handling**: 
+**Error Handling**:
 - Catches all errors and calls `core.setFailed()`
 - Provides detailed error messages for debugging
 
@@ -280,7 +280,7 @@ Sets all GitHub Actions output values.
 - **Invalid base ref**: Action falls back to `HEAD~1` comparison
 - **Permission issues**: Ensure proper repository permissions
 
-#### Directory Structure Issues  
+#### Directory Structure Issues
 - **Missing directories**: Warnings logged, continues with available paths
 - **Invalid patterns**: Each pattern processed independently, failures don't block others
 - **Permission errors**: Logged as warnings, affected directories skipped
@@ -304,7 +304,7 @@ Enable debug logging by setting the `ACTIONS_STEP_DEBUG` secret to `true` in you
 **Example Debug Output**:
 ```
 Processing pattern: apps/*
-Found 3 directories: portal-dashboard, analytics-app, user-management  
+Found 3 directories: portal-dashboard, analytics-app, user-management
 Checking package.json in apps/portal-dashboard
 ✅ Has Fusion dependencies: @equinor/fusion-framework-cli
 ✅ Has app scripts: build, start
