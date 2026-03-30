@@ -21870,11 +21870,21 @@ function isFusionApp(packageJson) {
   return hasCli || hasAppScripts || hasAppConfig || !!packageJson.private;
 }
 function findChangedApps(changedFiles, allApps) {
+  const isDebugMode = coreExports.isDebug();
+  if (isDebugMode) {
+    coreExports.debug(`DEBUG: findChangedApps#changedFiles: [${JSON.stringify(changedFiles)}]`);
+  }
   const changedApps = [];
   for (const app of allApps) {
+    const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
+    if (isDebugMode) {
+      coreExports.debug(`DEBUG: findChangedApps#normalizedAppPath: [${normalizedAppPath}]`);
+    }
     const isChanged = changedFiles.some((file2) => {
       const normalizedFile = file2.startsWith("./") ? file2.slice(2) : file2;
-      const normalizedAppPath = app.path.startsWith("./") ? app.path.slice(2) : app.path;
+      if (isDebugMode) {
+        coreExports.debug(`DEBUG: findChangedApps#normalizedFile: [${normalizedFile}]`);
+      }
       if (normalizedAppPath === ".") {
         return true;
       }
