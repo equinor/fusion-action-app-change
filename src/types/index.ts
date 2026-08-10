@@ -17,6 +17,8 @@ export interface PackageJson {
   name?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   scripts?: Record<string, string>;
   fusion?: Record<string, unknown>;
   fusionApp?: Record<string, unknown>;
@@ -24,6 +26,22 @@ export interface PackageJson {
   main?: string;
   module?: string;
   exports?: Record<string, unknown>;
+}
+
+/**
+ * Result of resolving a git diff strategy.
+ */
+export interface GitComparison {
+  baseRef: string;
+  changedFiles: string[];
+}
+
+/**
+ * Identifies one dependency entry in a pnpm workspace catalog.
+ */
+export interface CatalogEntry {
+  catalog: string;
+  dependency: string;
 }
 
 /**

@@ -4,13 +4,13 @@ import type { ActionsMatrix, FusionApp } from "../types/index.js";
 /**
  * Helper function to set outputs reliably in both standalone and composite actions
  */
-function setActionOutput(name: string, value: string): void {
+const setActionOutput = (name: string, value: string): void => {
   // Use the standard @actions/core method - it handles GITHUB_OUTPUT correctly in v2+
   core.setOutput(name, value);
 
   // Add debugging output to help troubleshoot in GitHub Actions
   core.info(`📤 Set output ${name}=${value}`);
-}
+};
 
 /**
  * Sets all GitHub Actions outputs with the detection results.
@@ -26,7 +26,7 @@ function setActionOutput(name: string, value: string): void {
  * - matrix: GitHub Actions matrix format for parallel jobs
  * - changed-apps-count: Number of changed apps as string
  */
-export function setOutputs(changedApps: FusionApp[], changedFiles: string[] = []): void {
+export const setOutputs = (changedApps: FusionApp[], changedFiles: string[] = []): void => {
   const appNames = changedApps.map((app) => app.name);
   const appPaths = changedApps.map((app) => app.path);
   const hasChanges = changedApps.length > 0;
@@ -60,12 +60,12 @@ export function setOutputs(changedApps: FusionApp[], changedFiles: string[] = []
 
   // Also log the summary for debugging
   core.info(`📋 Summary: ${summary}`);
-}
+};
 
 /**
  * Sets minimal outputs on error to prevent validation issues
  */
-export function setErrorOutputs(errorMessage: string): void {
+export const setErrorOutputs = (errorMessage: string): void => {
   setActionOutput("changed-apps", "[]");
   setActionOutput("changed-app-names", "");
   setActionOutput("changed-app-paths", "[]");
@@ -75,4 +75,4 @@ export function setErrorOutputs(errorMessage: string): void {
   setActionOutput("app-types", "[]");
   setActionOutput("matrix", JSON.stringify({ include: [] }));
   setActionOutput("changed-apps-count", "0");
-}
+};

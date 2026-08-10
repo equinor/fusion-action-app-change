@@ -1,7 +1,8 @@
 import * as core from "@actions/core";
 import { findChangedApps, findFusionApps } from "./core/fusion-app.js";
-import { getBaseRef, getChangedFiles } from "./core/git.js";
+import { getBaseRef, getGitComparison } from "./core/git.js";
 import { setErrorOutputs, setOutputs } from "./core/outputs.js";
+import { findCatalogChangedApps } from "./core/pnpm-catalog.js";
 
 /**
  * Main function that orchestrates the Fusion app change detection process.
@@ -14,7 +15,7 @@ import { setErrorOutputs, setOutputs } from "./core/outputs.js";
  * 5. Identifies which apps have changes
  * 6. Sets GitHub Actions outputs with the results
  */
-async function run(): Promise<void> {
+const run = async (): Promise<void> => {
   try {
     core.info("🔍 Detecting changed Fusion apps...");
 
@@ -31,14 +32,20 @@ async function run(): Promise<void> {
     }
 
     // Get changed files
-    const changedFiles = getChangedFiles(baseRef);
+    const comparison = getGitComparison(baseRef);
+    const changedFiles = comparison.changedFiles;
 
     // Find all Fusion apps
     const allApps = findFusionApps(appPatterns);
     core.info(`🎯 Found ${allApps.length} Fusion apps`);
 
     // Determine changed apps
-    const changedApps = findChangedApps(changedFiles, allApps);
+    const pathChangedApps = findChangedApps(changedFiles, allApps);
+    const catalogChangedApps = findCatalogChangedApps(changedFiles, allApps, comparison.baseRef);
+    const changedAppPaths = new Set(
+      [...pathChangedApps, ...catalogChangedApps].map((app) => app.path),
+    );
+    const changedApps = allApps.filter((app) => changedAppPaths.has(app.path));
 
     // Set outputs
     setOutputs(changedApps, changedFiles);
@@ -60,7 +67,7 @@ async function run(): Promise<void> {
     setErrorOutputs(errorMessage);
     core.setFailed(`❌ ${errorMessage}`);
   }
-}
+};
 
 // Run the action
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -73,13 +80,20 @@ export { run };
 
 export { findChangedApps, findFusionApps, isFusionApp } from "./core/fusion-app.js";
 // Re-export all functions for testing
-export { getBaseRef, getChangedFiles } from "./core/git.js";
+export { getBaseRef, getChangedFiles, getFileAtRef, getGitComparison } from "./core/git.js";
 export { setOutputs } from "./core/outputs.js";
+export {
+  findAppsConsumingCatalogEntries,
+  findCatalogChangedApps,
+  getChangedCatalogEntries,
+} from "./core/pnpm-catalog.js";
 
 // Re-export types
 export type {
   ActionsMatrix,
+  CatalogEntry,
   FusionApp,
+  GitComparison,
   GitHubEventPullRequest,
   PackageJson,
 } from "./types/index.js";

@@ -7,11 +7,12 @@ This directory contains the modular TypeScript source code for the Fusion Action
 ```
 src/
 ├── index.ts          # Main entry point and orchestration
-├── index.test.ts     # Comprehensive test suite (24 tests)
+├── index.test.ts     # Core app and git test suite
 ├── types/
 │   └── index.ts      # TypeScript type definitions and interfaces
 ├── core/
 │   ├── git.ts        # Git operations (getBaseRef, getChangedFiles)
+│   ├── pnpm-catalog.ts # pnpm workspace catalog comparison and consumer mapping
 │   ├── fusion-app.ts # Fusion app detection and analysis logic
 │   └── outputs.ts    # GitHub Actions output handling
 └── utils/            # Utility functions (reserved for future use)
@@ -34,6 +35,13 @@ src/
 ### `core/git.ts`
 - `getBaseRef()`: Determines git reference for comparison (PR base or HEAD~1)
 - `getChangedFiles()`: Retrieves changed files using multiple git strategies
+- `getGitComparison()`: Returns changed files with the effective fallback base
+- `getFileAtRef()`: Reads repository files at a git reference without shell execution
+
+### `core/pnpm-catalog.ts`
+- `getChangedCatalogEntries()`: Compares default and named pnpm catalog definitions
+- `findAppsConsumingCatalogEntries()`: Maps catalog entries to package.json consumers
+- `findCatalogChangedApps()`: Runs catalog mapping only when the workspace file changed
 
 ### `core/fusion-app.ts`
 - `findFusionApps()`: Discovers Fusion apps using configurable glob patterns
@@ -47,8 +55,8 @@ src/
 
 ## Testing
 
-All modules are tested through the comprehensive test suite in `index.test.ts`:
-- 24 test cases covering all public functions
+All modules are tested through focused Vitest suites:
+- 34 test cases covering all public functions
 - Mocked dependencies for isolated unit testing
 - Full coverage of error conditions and edge cases
 
