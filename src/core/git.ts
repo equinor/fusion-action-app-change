@@ -1,8 +1,7 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as core from "@actions/core";
-import { quote } from "shell-quote";
-import type { GitHubEventPullRequest } from "../types/index.js";
+import type { GitComparison, GitHubEventPullRequest } from "../types/index.js";
 
 /**
  * Determines the appropriate git reference to use as the base for comparison.
@@ -12,7 +11,7 @@ import type { GitHubEventPullRequest } from "../types/index.js";
  * - For pushes: Uses the previous commit (HEAD~1)
  * - Falls back to 'main' branch if event parsing fails
  */
-export function getBaseRef(): string {
+export const getBaseRef = (): string => {
   // Smart base ref detection based on event type
   const eventName = process.env.GITHUB_EVENT_NAME;
 
@@ -31,47 +30,93 @@ export function getBaseRef(): string {
   }
 
   return "HEAD~1";
-}
+};
 
 /**
- * Retrieves the list of files that have changed between the base reference and HEAD.
+ * Resolves the files and effective base reference used to compare against HEAD.
  *
  * Uses multiple git diff strategies to ensure robust file detection:
  * 1. git diff --name-only baseRef...HEAD (preferred for PRs)
  * 2. git diff --name-only baseRef HEAD (fallback)
  * 3. git diff --name-only HEAD~1 HEAD (last resort)
  */
-export function getChangedFiles(baseRef: string): string[] {
+export const getGitComparison = (baseRef: string): GitComparison => {
   try {
-    // Sanitize baseRef to prevent command injection
-    const safeBaseRef = quote([baseRef]);
-
-    // Try different git diff approaches
-    const commands = [
-      `git diff --name-only ${safeBaseRef}...HEAD`,
-      `git diff --name-only ${safeBaseRef} HEAD`,
-      "git diff --name-only HEAD~1 HEAD",
+    const strategies = [
+      { baseRef, args: ["diff", "--name-only", `${baseRef}...HEAD`], useMergeBase: true },
+      { baseRef, args: ["diff", "--name-only", baseRef, "HEAD"], useMergeBase: false },
+      {
+        baseRef: "HEAD~1",
+        args: ["diff", "--name-only", "HEAD~1", "HEAD"],
+        useMergeBase: false,
+      },
     ];
 
-    for (const cmd of commands) {
+    for (const strategy of strategies) {
       try {
-        const output = execSync(cmd, {
+        const output = execFileSync("git", strategy.args, {
           encoding: "utf8",
           stdio: ["pipe", "pipe", "ignore"],
         });
         const files = output.split("\n").filter((file) => file.trim());
-        if (files.length > 0) {
-          return files;
-        }
+        const effectiveBaseRef = strategy.useMergeBase
+          ? execFileSync("git", ["merge-base", strategy.baseRef, "HEAD"], {
+              encoding: "utf8",
+              stdio: ["pipe", "pipe", "ignore"],
+            }).trim()
+          : strategy.baseRef;
+        return { baseRef: effectiveBaseRef, changedFiles: files };
       } catch {
-        // continue to next command
+        // Continue to the next comparison strategy.
       }
     }
 
     core.warning("⚠️ Could not determine changed files, assuming all apps may be affected");
-    return ["**/*"];
+    return { baseRef, changedFiles: ["**/*"] };
   } catch (error) {
     core.warning(`⚠️ Git diff failed: ${error instanceof Error ? error.message : String(error)}`);
-    return ["**/*"];
+    return { baseRef, changedFiles: ["**/*"] };
   }
-}
+};
+
+/**
+ * Retrieves the list of files that changed between the selected base and HEAD.
+ */
+export const getChangedFiles = (baseRef: string): string[] => {
+  return getGitComparison(baseRef).changedFiles;
+};
+
+/**
+ * Reads a repository file at a git reference without invoking a shell.
+ *
+ * Returns undefined when the reference exists but the file does not. Invalid
+ * references and unreadable git objects throw so callers can fail safely.
+ */
+export const getFileAtRef = (ref: string, filePath: string): string | undefined => {
+  try {
+    return execFileSync("git", ["show", `${ref}:${filePath}`], {
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+  } catch (showError) {
+    try {
+      execFileSync("git", ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], {
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
+      });
+    } catch {
+      throw new Error(`Could not resolve git reference ${ref}`, { cause: showError });
+    }
+
+    try {
+      execFileSync("git", ["cat-file", "-e", `${ref}:${filePath}`], {
+        encoding: "utf8",
+        stdio: ["pipe", "pipe", "ignore"],
+      });
+    } catch {
+      return undefined;
+    }
+
+    throw new Error(`Could not read ${filePath} at ${ref}`, { cause: showError });
+  }
+};

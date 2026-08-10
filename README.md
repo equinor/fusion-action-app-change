@@ -27,6 +27,7 @@ A GitHub Action that intelligently detects changes in Fusion applications within
 - 🔍 **Smart Discovery** - Automatically finds Fusion apps using configurable workspace patterns
 - 📦 **App vs Library Classification** - Distinguishes between deployable apps and shared libraries
 - 📁 **Intelligent Change Detection** - Compares commits to identify modified apps and files
+- 🗂️ **pnpm Catalog Awareness** - Maps changed workspace catalog entries to the apps that consume them
 - 📊 **Detailed Output**: Provides structured JSON output with change metadata and app types
 - 🚀 **CI/CD Integration**: Perfect for triggering builds only for changed apps
 - 💬 **PR Comments**: Automatically comments on pull requests with change summaries
@@ -84,7 +85,13 @@ jobs:
 - Detects the correct base/head refs for PRs and pushes
 - Finds Fusion apps using smart workspace detection
 - Uses sensible file patterns for change detection
+- Detects apps affected by changed default or named catalogs in `pnpm-workspace.yaml`
 - Distinguishes between apps and libraries
+
+When the root `pnpm-workspace.yaml` changes, the action compares catalog entries between the
+selected git base and `HEAD`. Apps are marked as changed only when their `package.json` references
+an added, removed, or updated entry using `catalog:`, `catalog:default`, or `catalog:<name>` in
+`dependencies`, `devDependencies`, `optionalDependencies`, or `peerDependencies`.
 
 ## Outputs
 

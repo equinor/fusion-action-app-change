@@ -16,7 +16,8 @@ src/
 ├── types/index.ts        # TypeScript type definitions
 ├── core/
 │   ├── git.ts           # Git operations and diff analysis
-│   ├── fusion-app.ts    # App discovery and classification  
+│   ├── pnpm-catalog.ts  # Workspace catalog comparison and consumer mapping
+│   ├── fusion-app.ts    # App discovery and classification
 │   └── outputs.ts       # GitHub Actions output handling
 └── utils/               # Utility functions (reserved)
 ```
@@ -25,6 +26,7 @@ src/
 - **index.ts**: Main orchestration, error handling, re-exports for testing
 - **types/**: All TypeScript interfaces (FusionApp, PackageJson, etc.)
 - **core/git.ts**: Base reference detection and file change analysis
+- **core/pnpm-catalog.ts**: pnpm catalog parsing, comparison, and package consumer mapping
 - **core/fusion-app.ts**: App pattern matching and classification logic
 - **core/outputs.ts**: GitHub Actions output formatting and error handling
 
@@ -171,7 +173,11 @@ flowchart TD
     C -->|"file.startsWith(app.path + '/')"| D["✅ App Changed"]
     C -->|"file === app.path"| D
     C -->|"file === '**/*'"| D
-    C -->|No match| E["Continue to next"]
+    C -->|No match| G{"pnpm-workspace.yaml<br/>changed?"}
+    G -->|Yes| H{"App consumes a<br/>changed catalog entry?"}
+    H -->|Yes| D
+    H -->|No| E["Continue to next"]
+    G -->|No| E
     E --> B
     D --> F["Add to changed apps"]
     F --> B
@@ -181,6 +187,12 @@ flowchart TD
 - Removes `./` prefix from file paths
 - Ensures consistent path separator usage
 - Handles edge cases like empty paths
+
+**pnpm Catalog Mapping**:
+- Compares the root workspace `catalog` and `catalogs` maps at the effective git base and `HEAD`
+- Tracks dependency entry additions, removals, and version changes independently
+- Matches only apps using the changed dependency through the same default or named catalog
+- Reads all package.json dependency sections supported by pnpm's catalog protocol
 
 ### 6. Output Generation Engine
 
@@ -476,7 +488,7 @@ function validateAppStructure(appPath) {
 
 The codebase uses **Vitest** for testing with comprehensive coverage across all modules:
 
-- **24 test cases** covering all public functions and edge cases
+- **35 test cases** covering all public functions and edge cases
 - **Modular testing**: Each core module (git, fusion-app, outputs) tested via main exports
 - **Mocked dependencies**: Uses Vitest mocking for @actions/core, fs, and child_process
 - **Type safety**: Full TypeScript testing with proper type checking

@@ -16,7 +16,7 @@ import type { FusionApp, PackageJson } from "../types/index.js";
  * 2. Parsing package.json content
  * 3. Applying Fusion app classification logic via isFusionApp()
  */
-export function findFusionApps(patterns: string[]): FusionApp[] {
+export const findFusionApps = (patterns: string[]): FusionApp[] => {
   const apps: FusionApp[] = [];
 
   for (const pattern of patterns) {
@@ -76,7 +76,7 @@ export function findFusionApps(patterns: string[]): FusionApp[] {
   }
 
   return apps;
-}
+};
 
 /**
  * Determines if a package.json represents a Fusion application (vs library).
@@ -92,7 +92,7 @@ export function findFusionApps(patterns: string[]): FusionApp[] {
  *    - Publishable libraries (has main/module/exports + not private)
  *    - Packages without app scripts or config
  */
-export function isFusionApp(packageJson: PackageJson): boolean {
+export const isFusionApp = (packageJson: PackageJson): boolean => {
   const allDeps = {
     ...packageJson.dependencies,
     ...packageJson.devDependencies,
@@ -127,7 +127,7 @@ export function isFusionApp(packageJson: PackageJson): boolean {
   }
 
   return hasCli || hasAppScripts || hasAppConfig || !!packageJson.private;
-}
+};
 
 /**
  * Identifies which discovered Fusion apps have changes based on the changed files list.
@@ -137,7 +137,7 @@ export function isFusionApp(packageJson: PackageJson): boolean {
  * - Checks if any changed file is within an app's directory
  * - Handles special cases like universal wildcards (all files changed)
  */
-export function findChangedApps(changedFiles: string[], allApps: FusionApp[]): FusionApp[] {
+export const findChangedApps = (changedFiles: string[], allApps: FusionApp[]): FusionApp[] => {
   const isDebugMode = core.isDebug();
   if (isDebugMode) {
     core.debug(`DEBUG: findChangedApps#changedFiles: [${JSON.stringify(changedFiles)}]`);
@@ -175,4 +175,4 @@ export function findChangedApps(changedFiles: string[], allApps: FusionApp[]): F
   }
 
   return changedApps;
-}
+};

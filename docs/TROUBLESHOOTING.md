@@ -90,6 +90,23 @@ git diff --name-only HEAD~1 HEAD
 git diff --name-only origin/main...HEAD
 ```
 
+#### Check pnpm Catalog References
+
+Changes to a root `pnpm-workspace.yaml` catalog affect only apps that reference the changed
+dependency entry. Confirm the app uses `catalog:`, `catalog:default`, or the matching named catalog
+in a supported dependency section:
+
+```bash
+jq '{
+  dependencies,
+  devDependencies,
+  optionalDependencies,
+  peerDependencies
+}' apps/my-app/package.json
+```
+
+Direct versions such as `"react": "^19.0.0"` are intentionally not mapped to catalog changes.
+
 ### 3. Wrong Apps Being Classified
 
 **Problem**: Libraries are detected as apps, or apps are being excluded.

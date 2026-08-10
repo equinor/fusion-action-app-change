@@ -13,6 +13,7 @@ import {
   findFusionApps,
   getBaseRef,
   getChangedFiles,
+  getGitComparison,
   isFusionApp,
   setOutputs,
 } from "./index.js";
@@ -77,14 +78,26 @@ describe("Fusion App Change Detection - Simple Tests", () => {
 
   describe("getChangedFiles", () => {
     test("returns files from successful git diff", () => {
-      vi.mocked(childProcess.execSync).mockReturnValue("file1.js\nfile2.ts\n");
+      vi.mocked(childProcess.execFileSync)
+        .mockReturnValueOnce("file1.js\nfile2.ts\n")
+        .mockReturnValueOnce("base-sha\n");
 
       const result = getChangedFiles("main");
       expect(result).toEqual(["file1.js", "file2.ts"]);
+      expect(childProcess.execFileSync).toHaveBeenCalledWith(
+        "git",
+        ["diff", "--name-only", "main...HEAD"],
+        expect.any(Object),
+      );
+      expect(childProcess.execFileSync).toHaveBeenCalledWith(
+        "git",
+        ["merge-base", "main", "HEAD"],
+        expect.any(Object),
+      );
     });
 
     test("tries multiple git commands on failure", () => {
-      vi.mocked(childProcess.execSync)
+      vi.mocked(childProcess.execFileSync)
         .mockImplementationOnce(() => {
           throw new Error("Command failed");
         })
@@ -95,11 +108,11 @@ describe("Fusion App Change Detection - Simple Tests", () => {
 
       const result = getChangedFiles("main");
       expect(result).toEqual(["recovered-file.js"]);
-      expect(childProcess.execSync).toHaveBeenCalledTimes(3);
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(3);
     });
 
     test("returns wildcard on complete failure", () => {
-      vi.mocked(childProcess.execSync).mockImplementation(() => {
+      vi.mocked(childProcess.execFileSync).mockImplementation(() => {
         throw new Error("Git not available");
       });
 
@@ -108,10 +121,48 @@ describe("Fusion App Change Detection - Simple Tests", () => {
     });
 
     test("filters out empty lines", () => {
-      vi.mocked(childProcess.execSync).mockReturnValue("file1.js\n\nfile2.ts\n\n");
+      vi.mocked(childProcess.execFileSync)
+        .mockReturnValueOnce("file1.js\n\nfile2.ts\n\n")
+        .mockReturnValueOnce("base-sha\n");
 
       const result = getChangedFiles("main");
       expect(result).toEqual(["file1.js", "file2.ts"]);
+    });
+
+    test("returns no files for a successful empty diff", () => {
+      vi.mocked(childProcess.execFileSync)
+        .mockReturnValueOnce("")
+        .mockReturnValueOnce("base-sha\n");
+
+      expect(getChangedFiles("main")).toEqual([]);
+      expect(childProcess.execFileSync).toHaveBeenCalledTimes(2);
+    });
+
+    test("reports the merge base selected by a three-dot comparison", () => {
+      vi.mocked(childProcess.execFileSync)
+        .mockReturnValueOnce("pnpm-workspace.yaml\n")
+        .mockReturnValueOnce("merge-base-sha\n");
+
+      expect(getGitComparison("main")).toEqual({
+        baseRef: "merge-base-sha",
+        changedFiles: ["pnpm-workspace.yaml"],
+      });
+    });
+
+    test("reports the effective base ref selected by fallback", () => {
+      vi.mocked(childProcess.execFileSync)
+        .mockImplementationOnce(() => {
+          throw new Error("Command failed");
+        })
+        .mockImplementationOnce(() => {
+          throw new Error("Command failed");
+        })
+        .mockReturnValue("pnpm-workspace.yaml\n");
+
+      expect(getGitComparison("missing-base")).toEqual({
+        baseRef: "HEAD~1",
+        changedFiles: ["pnpm-workspace.yaml"],
+      });
     });
   });
 

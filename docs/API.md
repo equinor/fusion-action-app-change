@@ -231,6 +231,11 @@ Determines which apps have changes based on modified files.
 - Checks if any changed file is within app directory
 - Uses string prefix matching with path separators
 
+Path-based results are combined with catalog-aware results. If `pnpm-workspace.yaml` changed, the
+action compares its `catalog` and `catalogs` definitions at the effective git base and `HEAD`, then
+maps changed dependency entries to apps using the corresponding pnpm catalog protocol reference.
+Direct dependency versions are not affected.
+
 #### `getBaseRef()`
 **Signature**: `function getBaseRef(): string`
 
@@ -259,6 +264,23 @@ Gets list of changed files using git diff.
 3. `git diff --name-only HEAD~1 HEAD` (last resort)
 
 **Fallback**: Returns `['**/*']` if all git commands fail
+
+The internal git comparison also reports the effective base reference. This ensures catalog
+definitions use `HEAD~1` when changed-file detection had to use that fallback instead of the
+initially requested ref.
+
+#### `findCatalogChangedApps(changedFiles, allApps, baseRef)`
+**Signature**:
+`function findCatalogChangedApps(changedFiles: string[], allApps: AppObject[], baseRef: string): AppObject[]`
+
+Maps changed pnpm catalog entries to consuming apps.
+
+**Behavior**:
+- Does no catalog work unless the root `pnpm-workspace.yaml` changed
+- Compares default and named catalog entry additions, removals, and version changes
+- Supports `catalog:`, `catalog:default`, and `catalog:<name>`
+- Checks `dependencies`, `devDependencies`, `optionalDependencies`, and `peerDependencies`
+- Marks all discovered apps only when workspace catalog comparison cannot be completed safely
 
 #### `setOutputs(changedApps, changedFiles)`
 **Signature**: `function setOutputs(changedApps: AppObject[], changedFiles?: string[]): void`
