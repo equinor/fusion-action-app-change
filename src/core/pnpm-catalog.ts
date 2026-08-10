@@ -169,9 +169,11 @@ export const findCatalogChangedApps = (
       getFileAtRef("HEAD", WORKSPACE_FILE),
     );
     const changedApps = findAppsConsumingCatalogEntries(changedEntries, allApps);
+    const appLabel = changedApps.length === 1 ? "app" : "apps";
+    const entryLabel = changedEntries.length === 1 ? "entry" : "entries";
 
     core.debug(
-      `pnpm catalog changes affected ${changedApps.length} app(s) across ${changedEntries.length} changed catalog entry/entries`,
+      `pnpm catalog changes affected ${changedApps.length} ${appLabel} across ${changedEntries.length} changed catalog ${entryLabel}`,
     );
     return changedApps;
   } catch (error) {

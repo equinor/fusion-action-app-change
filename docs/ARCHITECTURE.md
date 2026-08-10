@@ -488,7 +488,7 @@ function validateAppStructure(appPath) {
 
 The codebase uses **Vitest** for testing with comprehensive coverage across all modules:
 
-- **34 test cases** covering all public functions and edge cases
+- **35 test cases** covering all public functions and edge cases
 - **Modular testing**: Each core module (git, fusion-app, outputs) tested via main exports
 - **Mocked dependencies**: Uses Vitest mocking for @actions/core, fs, and child_process
 - **Type safety**: Full TypeScript testing with proper type checking

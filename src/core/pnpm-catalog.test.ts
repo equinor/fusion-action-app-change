@@ -100,6 +100,20 @@ describe("pnpm catalog change detection", () => {
     expect(getFileAtRef).not.toHaveBeenCalled();
   });
 
+  test("uses readable singular labels in catalog change debug output", () => {
+    vi.mocked(getFileAtRef)
+      .mockReturnValueOnce("catalog:\n  react: ^18.0.0\n")
+      .mockReturnValueOnce("catalog:\n  react: ^19.0.0\n");
+    mockPackageJson({
+      "apps/one/package.json": { dependencies: { react: "catalog:" } },
+    });
+
+    expect(findCatalogChangedApps(["pnpm-workspace.yaml"], [apps[0]], "main")).toEqual([apps[0]]);
+    expect(core.debug).toHaveBeenCalledWith(
+      "pnpm catalog changes affected 1 app across 1 changed catalog entry",
+    );
+  });
+
   test("marks all apps when workspace catalog parsing is unsafe", () => {
     vi.mocked(getFileAtRef)
       .mockReturnValueOnce("catalog: [")

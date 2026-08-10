@@ -56,7 +56,7 @@ src/
 ## Testing
 
 All modules are tested through focused Vitest suites:
-- 34 test cases covering all public functions
+- 35 test cases covering all public functions
 - Mocked dependencies for isolated unit testing
 - Full coverage of error conditions and edge cases
 
