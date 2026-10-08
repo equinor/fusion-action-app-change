@@ -36,7 +36,7 @@
     "shell-quote": "^1.8.3",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
-    "undici": "6.23.0"
+    "undici": "8.11.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
