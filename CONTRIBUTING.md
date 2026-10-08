@@ -148,6 +148,23 @@ docs: update README with new configuration options
 test: add tests for edge cases in app detection
 ```
 
+### GitHub Actions Dependencies
+
+Pin remote `uses:` references in workflows and composite actions to full
+40-character commit SHAs, with the matching release version in a comment
+(for example, `# v4.4.0`). Verify the commit against the upstream repository
+before updating a pin. Local `uses: ./...` references do not need a SHA.
+
+[Dependabot](.github/dependabot.yml) checks GitHub Actions dependencies weekly
+and proposes updates to pins and version comments. It also checks npm package
+dependencies weekly using the `npm` ecosystem, which supports this repository's
+pnpm manifest and lockfile.
+
+The published [action](action.yml) runs directly on Node.js and has no nested
+remote actions. Callers using GitHub's full-SHA enforcement policy must still
+pin this action and every other remote action in their own workflows to full
+commit SHAs rather than version tags.
+
 ## 🐛 Bug Reports
 
 When reporting bugs, please include:
