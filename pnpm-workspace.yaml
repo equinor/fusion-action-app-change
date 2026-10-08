@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+  sqlite3: true
+overrides:
+  undici: ">=6.23.0"
