@@ -69,13 +69,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { run };
-
 export { findChangedApps, findFusionApps, isFusionApp } from "./core/fusion-app.js";
 // Re-export all functions for testing
 export { getBaseRef, getChangedFiles } from "./core/git.js";
 export { setOutputs } from "./core/outputs.js";
-
 // Re-export types
 export type {
   ActionsMatrix,
@@ -83,3 +80,4 @@ export type {
   GitHubEventPullRequest,
   PackageJson,
 } from "./types/index.js";
+export { run };
