@@ -23,7 +23,7 @@ jobs:
       hasChangesets: ${{ steps.changesets.outputs.hasChangesets }}
     steps:
       # Checkout repository with full history for changeset processing
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
@@ -50,7 +50,7 @@ jobs:
       # Process changesets: create version PR or create GitHub releases
       - name: Create Release Pull Request or Create GitHub Release
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           title: '🤖 Release - Fusion Action App Change'
           createGithubReleases: true
