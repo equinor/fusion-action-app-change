@@ -156,7 +156,9 @@ Pin remote `uses:` references in workflows and composite actions to full
 before updating a pin. Local `uses: ./...` references do not need a SHA.
 
 [Dependabot](.github/dependabot.yml) checks GitHub Actions dependencies weekly
-and proposes updates to pins and version comments.
+and proposes updates to pins and version comments. It also checks npm package
+dependencies weekly using the `npm` ecosystem, which supports this repository's
+pnpm manifest and lockfile.
 
 The published [action](action.yml) runs directly on Node.js and has no nested
 remote actions. Callers using GitHub's full-SHA enforcement policy must still
