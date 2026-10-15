@@ -45,7 +45,7 @@
     "@types/node": "^26.6.4",
     "@types/shell-quote": "^1.7.5",
     "@vitest/ui": "^4.1.11",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vite": "^7.3.5",
     "vitest": "^4.1.11"
   }
