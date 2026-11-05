@@ -13,7 +13,7 @@ export default defineConfig({
       formats: ["cjs"], // CommonJS for GitHub Actions
       fileName: "index",
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         /^node:/,
         "node:sqlite", // Add this line
@@ -35,13 +35,16 @@ export default defineConfig({
         "buffer",
         "querystring",
       ],
-    },
-
-    commonjsOptions: {
-      include: [/node_modules/], // Bundle CJS dependencies
+      // Rolldown does not polyfill import.meta.url for CJS output; the entrypoint guard in src/index.ts depends on it
+      transform: {
+        define: { "import.meta.url": "__importMetaUrl" },
+      },
+      output: {
+        intro: 'const __importMetaUrl = require("node:url").pathToFileURL(__filename).href;',
+      },
     },
   },
-  esbuild: {
+  oxc: {
     target: "node24",
   },
   define: {
