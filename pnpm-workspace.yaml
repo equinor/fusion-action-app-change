@@ -2,5 +2,5 @@ allowBuilds:
   esbuild: true
   sqlite3: true
 overrides:
-  undici: '>=6.23.0'
+  undici: '>=8.12.2'
   rollup: ^4.59.0
