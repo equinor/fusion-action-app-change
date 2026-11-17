@@ -150,13 +150,28 @@ test: add tests for edge cases in app detection
 
 ### GitHub Actions Dependencies
 
-Pin remote `uses:` references in workflows and composite actions to full
-40-character commit SHAs, with the matching release version in a comment
-(for example, `# v4.4.0`). Verify the commit against the upstream repository
-before updating a pin. Local `uses: ./...` references do not need a SHA.
+All workflows are onboarded to a
+[workflow dependency lockfile](https://docs.github.com/en/actions/how-tos/secure-your-work/lock-workflow-dependencies)
+at [.github/workflows/actions.lock](.github/workflows/actions.lock), which pins
+every direct and transitive action to a verified commit SHA. Reference remote
+actions by full version tag (for example, `actions/setup-node@v4.4.0`) and
+reference this repository's own actions with `$/...` (for example,
+`uses: $/.github/actions/node-setup`) rather than `./...`.
+
+Whenever you add a workflow or add, remove, or change a `uses:` dependency,
+regenerate and verify the lockfile with the
+[`gh actions-lock`](https://github.com/github/gh-actions-lock) extension, then
+review the lockfile diff. Never edit the lockfile by hand, and never use
+`--accept-moved` without reviewing the upstream history.
+
+```bash
+gh extension install github/gh-actions-lock
+gh actions-lock
+gh actions-lock --verify
+```
 
 [Dependabot](.github/dependabot.yml) checks GitHub Actions dependencies weekly
-and proposes updates to pins and version comments. It also checks npm package
+and updates both the workflow references and the matching lockfile entries. It also checks npm package
 dependencies weekly using the `npm` ecosystem, which supports this repository's
 pnpm manifest and lockfile.
 
