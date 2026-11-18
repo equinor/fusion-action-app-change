@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import * as core from "@actions/core";
 import { findChangedApps, findFusionApps } from "./core/fusion-app.js";
 import { getBaseRef, getChangedFiles } from "./core/git.js";
@@ -62,8 +63,19 @@ async function run(): Promise<void> {
   }
 }
 
+/**
+ * Checks whether the module at `moduleUrl` is the script Node was started with.
+ * Both sides are compared as file URLs so Windows paths and percent-encoded characters match.
+ */
+export function isEntrypoint(moduleUrl: string, scriptPath: string | undefined): boolean {
+  if (!scriptPath) {
+    return false;
+  }
+  return moduleUrl === pathToFileURL(scriptPath).href;
+}
+
 // Run the action
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isEntrypoint(import.meta.url, process.argv[1])) {
   run().catch((error) => {
     core.setFailed(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
   });

@@ -7,12 +7,15 @@ vi.mock("node:child_process");
 
 import * as childProcess from "node:child_process";
 import * as fs from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import * as core from "@actions/core";
 import {
   findChangedApps,
   findFusionApps,
   getBaseRef,
   getChangedFiles,
+  isEntrypoint,
   isFusionApp,
   setOutputs,
 } from "./index.js";
@@ -319,6 +322,22 @@ describe("Fusion App Change Detection - Simple Tests", () => {
       expect(core.setOutput).toHaveBeenCalledWith("has-changes", "false");
       expect(core.setOutput).toHaveBeenCalledWith("changed-apps-count", "0");
       expect(core.setOutput).toHaveBeenCalledWith("summary", "No Fusion apps changed");
+    });
+  });
+
+  describe("isEntrypoint", () => {
+    test("matches script path that needs URL encoding", () => {
+      const scriptPath = resolve("dir with spaces", "index.js");
+      expect(isEntrypoint(pathToFileURL(scriptPath).href, scriptPath)).toBe(true);
+    });
+
+    test("does not match a different script", () => {
+      const moduleUrl = pathToFileURL(resolve("dist", "index.js")).href;
+      expect(isEntrypoint(moduleUrl, resolve("other.js"))).toBe(false);
+    });
+
+    test("does not match when no script path is given", () => {
+      expect(isEntrypoint(pathToFileURL(resolve("index.js")).href, undefined)).toBe(false);
     });
   });
 });
