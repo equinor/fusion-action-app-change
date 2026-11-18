@@ -20,10 +20,10 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
       
       - name: Setup Node and Install Dependencies
-        uses: ./.github/actions/node-setup
+        uses: $/.github/actions/node-setup
       
       - name: Run linter
         run: pnpm run lint
@@ -55,16 +55,16 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       
       - name: Setup Node and Install Dependencies
-        uses: ./.github/actions/node-setup
+        uses: $/.github/actions/node-setup
       
       - name: Test action (no Fusion apps expected)
         id: test-action
-        uses: ./
+        uses: $/
         # Don't specify app-paths to test auto-discovery
       
       - name: Validate outputs
