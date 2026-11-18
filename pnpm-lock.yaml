@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  undici: '>=6.23.0'
+  undici: '>=8.12.2'
 
 importers:
 
@@ -24,7 +24,7 @@ importers:
         specifier: ^6.0.1
         version: 6.0.1
       undici:
-        specifier: '>=6.23.0'
+        specifier: '>=8.12.2'
         version: 8.12.3
     devDependencies:
       '@biomejs/biome':

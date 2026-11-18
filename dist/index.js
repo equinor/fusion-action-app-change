@@ -22,6 +22,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 	value: mod,
 	enumerable: true
 }) : target, mod));
+let node_url = require("node:url");
 let os = require("os");
 os = __toESM(os, 1);
 let crypto = require("crypto");
@@ -28590,13 +28591,22 @@ async function run() {
 		setFailed(`❌ ${errorMessage}`);
 	}
 }
-if (__importMetaUrl === `file://${process.argv[1]}`) run().catch((error) => {
+/**
+* Checks whether the module at `moduleUrl` is the script Node was started with.
+* Both sides are compared as file URLs so Windows paths and percent-encoded characters match.
+*/
+function isEntrypoint(moduleUrl, scriptPath) {
+	if (!scriptPath) return false;
+	return moduleUrl === (0, node_url.pathToFileURL)(scriptPath).href;
+}
+if (isEntrypoint(__importMetaUrl, process.argv[1])) run().catch((error) => {
 	setFailed(`Unexpected error: ${error instanceof Error ? error.message : String(error)}`);
 });
 exports.findChangedApps = findChangedApps;
 exports.findFusionApps = findFusionApps;
 exports.getBaseRef = getBaseRef;
 exports.getChangedFiles = getChangedFiles;
+exports.isEntrypoint = isEntrypoint;
 exports.isFusionApp = isFusionApp;
 exports.run = run;
 exports.setOutputs = setOutputs;
