@@ -18,6 +18,7 @@ A GitHub Action that intelligently detects changes in Fusion applications within
 - **[Examples & Use Cases](docs/EXAMPLES.md)** - Real-world workflow examples
 - **[Architecture Overview](docs/ARCHITECTURE.md)** - Technical architecture and design decisions
 - **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[Publishing Guide](PUBLISHING.md)** - Automated releases, tag immutability policy, and SHA pinning
 - **[Contributing Guidelines](CONTRIBUTING.md)** - How to contribute to this project
 - **[Security Policy](SECURITY.md)** - Security considerations and reporting
 
@@ -31,6 +32,19 @@ A GitHub Action that intelligently detects changes in Fusion applications within
 - 🚀 **CI/CD Integration**: Perfect for triggering builds only for changed apps
 - 💬 **PR Comments**: Automatically comments on pull requests with change summaries
 - 🏗️ **Workspace Support**: Handles monorepos with multiple workspace patterns
+
+## Versioning and Pinning
+
+Release-specific patch tags (`vX.Y.Z`) are immutable and backed by GitHub Releases with changelog notes. Floating major (`v2`) and minor (`v2.0`) tags move forward only when a new stable release is published.
+
+- **Highest security (recommended for SHA-pinned workflows):** Pin to the full 40-character commit SHA of a published `vX.Y.Z` release with a trailing version comment so Dependabot can propose updates on new releases:
+  ```yaml
+  - uses: equinor/fusion-action-app-change@<40-char-commit-sha> # v2.0.1
+  ```
+- **Exact patch tag:** `equinor/fusion-action-app-change@v2.0.1`
+- **Floating minor or major alias:** `equinor/fusion-action-app-change@v2.0` or `equinor/fusion-action-app-change@v2`
+
+See [PUBLISHING.md](PUBLISHING.md) for the full release and immutability policy.
 
 ## Usage
 
