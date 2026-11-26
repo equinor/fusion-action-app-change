@@ -221,7 +221,7 @@ describe("CI release tag and GitHub Release automation", () => {
     expect(fixture.ghCalls().length).toBe(callsBefore);
   });
 
-  it("refuses to attach a missing release tag to a later non-release commit after a failed version-bump run", () => {
+  it("recovers an unpublished release at the version-introducing commit instead of tagging a later non-release HEAD", () => {
     const fixture = createGitFixture(
       "2.0.0",
       "# fusion-action-app-change\n\n## 2.0.0\n\n### Major Changes\n\n- Initial 2.0.0 release\n",
@@ -229,6 +229,7 @@ describe("CI release tag and GitHub Release automation", () => {
     const v200Sha = git(fixture.workDir, ["rev-parse", "HEAD"]);
     expect(fixture.runScript().status).toBe(0);
 
+    // Version-bump commit lands, but its CI run fails or is dropped before tagging.
     const versionBumpSha = fixture.commit("Version Packages (2.0.1)", {
       "package.json": `${JSON.stringify({ name: "fusion-action-app-change", version: "2.0.1", private: true }, null, 2)}\n`,
       "CHANGELOG.md":
@@ -236,29 +237,44 @@ describe("CI release tag and GitHub Release automation", () => {
     });
     git(fixture.workDir, ["push", "origin", "main"]);
 
+    // Later non-release commit supersedes the dropped run on main.
     const followUpDocsSha = fixture.commit("docs: clarify readme", {
       "README.md": "follow-up docs\n",
+      "CHANGELOG.md":
+        "# fusion-action-app-change\n\n## 2.0.1\n\n### Patch Changes\n\n- Mutated later docs\n",
     });
     git(fixture.workDir, ["push", "origin", "main"]);
 
-    const callsBefore = fixture.ghCalls().length;
-    const docsRun = fixture.runScript();
+    const recoveryRun = fixture.runScript();
 
-    expect(docsRun.status).toBe(0);
-    expect(docsRun.stdout).toContain("did not introduce version 2.0.1");
-    expect(fixture.remoteTagSha("v2.0.1")).toBe("");
-    expect(fixture.remoteTagSha("v2.0")).toBe(v200Sha);
-    expect(fixture.remoteTagSha("v2")).toBe(v200Sha);
-    expect(fixture.ghCalls().length).toBe(callsBefore);
-
-    git(fixture.workDir, ["checkout", versionBumpSha]);
-    const rerunResult = fixture.runScript();
-
-    expect(rerunResult.status).toBe(0);
+    expect(recoveryRun.status).toBe(0);
+    expect(recoveryRun.stdout).toContain(
+      `Recovering unpublished release v2.0.1 at version-introducing commit ${versionBumpSha}`,
+    );
+    expect(fixture.remoteTagSha("v2.0.0")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2.0.1")).toBe(versionBumpSha);
     expect(fixture.remoteTagSha("v2.0.1")).not.toBe(followUpDocsSha);
     expect(fixture.remoteTagSha("v2.0")).toBe(versionBumpSha);
     expect(fixture.remoteTagSha("v2")).toBe(versionBumpSha);
+
+    const v201Release = fixture
+      .ghCalls()
+      .find((call) => call.args[1] === "create" && call.args[2] === "v2.0.1");
+    expect(v201Release?.notes).toContain("Fix 2.0.1");
+    expect(v201Release?.notes).not.toContain("Mutated later docs");
+
+    // Another follow-up non-release commit skips cleanly once v2.0.1 is published.
+    const callsAfterRecovery = fixture.ghCalls().length;
+    fixture.commit("docs: second follow-up", {
+      "README.md": "second follow-up docs\n",
+    });
+    git(fixture.workDir, ["push", "origin", "main"]);
+
+    const subsequentRun = fixture.runScript();
+    expect(subsequentRun.status).toBe(0);
+    expect(subsequentRun.stdout).toContain("already exists on origin");
+    expect(fixture.remoteTagSha("v2.0.1")).toBe(versionBumpSha);
+    expect(fixture.ghCalls().length).toBe(callsAfterRecovery);
   });
 
   it("publishes a new unused patch version from a merge commit with matching changelog release notes while preserving prior tags", () => {

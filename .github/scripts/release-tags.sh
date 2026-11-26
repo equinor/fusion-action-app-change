@@ -33,43 +33,71 @@ resolve_remote_tag_sha() {
     awk '$2 ~ /\^\{\}$/ { sha=$1 } $2 !~ /\^\{\}$/ && sha == "" { sha=$1 } END { print sha }'
 }
 
+resolve_version_introducing_sha() {
+  local target_version="$1"
+  local sha=""
+  local prev_sha=""
+
+  while IFS= read -r sha; do
+    local commit_version=""
+    if git cat-file -e "${sha}:package.json" 2>/dev/null; then
+      commit_version=$(
+        git show "${sha}:package.json" | node -e '
+          const fs = require("node:fs");
+          try {
+            const pkg = JSON.parse(fs.readFileSync(0, "utf8"));
+            if (typeof pkg.version === "string") process.stdout.write(pkg.version);
+          } catch {}
+        '
+      )
+    fi
+    if [[ "${commit_version}" != "${target_version}" ]]; then
+      break
+    fi
+    prev_sha="${sha}"
+  done < <(git rev-list --first-parent HEAD)
+
+  printf '%s' "${prev_sha}"
+}
+
+RELEASE_SHA=$(resolve_version_introducing_sha "${VERSION}")
+if [[ -z "${RELEASE_SHA}" ]]; then
+  echo "Error: Could not find committed package.json with version '${VERSION}' at HEAD (${HEAD_SHA})." >&2
+  exit 1
+fi
+
 REMOTE_TAG_SHA=$(resolve_remote_tag_sha "${TAG}")
 
 # Non-release pushes to main keep the already-tagged package.json version.
 # Never overwrite an existing release tag or move floating aliases for non-release commits.
-if [[ -n "${REMOTE_TAG_SHA}" && "${REMOTE_TAG_SHA}" != "${HEAD_SHA}" ]]; then
+if [[ -n "${REMOTE_TAG_SHA}" && "${REMOTE_TAG_SHA}" != "${RELEASE_SHA}" ]]; then
+  echo "Tag ${TAG} already exists on origin at ${REMOTE_TAG_SHA} (release commit is ${RELEASE_SHA}); skipping tag and release creation."
+  exit 0
+fi
+
+if [[ -n "${REMOTE_TAG_SHA}" && "${HEAD_SHA}" != "${RELEASE_SHA}" ]]; then
   echo "Tag ${TAG} already exists on origin at ${REMOTE_TAG_SHA} (HEAD is ${HEAD_SHA}); skipping tag and release creation."
   exit 0
 fi
 
 if [[ -z "${REMOTE_TAG_SHA}" ]]; then
-  if git rev-parse -q --verify HEAD^ >/dev/null 2>&1 && git cat-file -e HEAD^:package.json 2>/dev/null; then
-    PREV_VERSION=$(
-      git show HEAD^:package.json | node -e '
-        const fs = require("node:fs");
-        const pkg = JSON.parse(fs.readFileSync(0, "utf8"));
-        if (typeof pkg.version === "string") process.stdout.write(pkg.version);
-      '
-    )
-    if [[ "${PREV_VERSION}" == "${VERSION}" ]]; then
-      echo "HEAD (${HEAD_SHA}) did not introduce version ${VERSION} (parent already has ${PREV_VERSION}); skipping tag and release creation. Re-run CI on the version-bump commit to publish ${TAG}."
-      exit 0
-    fi
+  if [[ "${RELEASE_SHA}" != "${HEAD_SHA}" ]]; then
+    echo "Recovering unpublished release ${TAG} at version-introducing commit ${RELEASE_SHA} (HEAD is ${HEAD_SHA})."
   fi
 
   if LOCAL_TAG_SHA=$(git rev-parse -q --verify "refs/tags/${TAG}^{commit}" 2>/dev/null); then
-    if [[ "${LOCAL_TAG_SHA}" != "${HEAD_SHA}" ]]; then
-      echo "Error: Local tag ${TAG} already exists at ${LOCAL_TAG_SHA} (HEAD is ${HEAD_SHA}); refusing to overwrite." >&2
+    if [[ "${LOCAL_TAG_SHA}" != "${RELEASE_SHA}" ]]; then
+      echo "Error: Local tag ${TAG} already exists at ${LOCAL_TAG_SHA} (release commit is ${RELEASE_SHA}); refusing to overwrite." >&2
       exit 1
     fi
   else
-    git tag "${TAG}" "${HEAD_SHA}"
+    git tag "${TAG}" "${RELEASE_SHA}"
   fi
 
-  echo "Creating and pushing immutable release tag ${TAG} at ${HEAD_SHA}"
+  echo "Creating and pushing immutable release tag ${TAG} at ${RELEASE_SHA}"
   git push origin "refs/tags/${TAG}"
 else
-  echo "Tag ${TAG} already points to HEAD (${HEAD_SHA}); verifying GitHub Release and floating tags."
+  echo "Tag ${TAG} already points to release commit (${RELEASE_SHA}); verifying GitHub Release and floating tags."
 fi
 
 if gh release view "${TAG}" >/dev/null 2>&1; then
@@ -77,22 +105,23 @@ if gh release view "${TAG}" >/dev/null 2>&1; then
 else
   NOTES_FILE=$(mktemp)
 
-  node -e '
-    const fs = require("node:fs");
-    const version = process.argv[1];
-    const notesFile = process.argv[2];
-    if (!fs.existsSync("CHANGELOG.md")) process.exit(0);
-    const content = fs.readFileSync("CHANGELOG.md", "utf8");
-    const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(`^## ${escaped}\\r?\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "m");
-    const match = content.match(pattern);
-    if (match) {
-      const body = match[1].trim();
-      if (body) {
-        fs.writeFileSync(notesFile, `${body}\n`, "utf8");
+  if git cat-file -e "${RELEASE_SHA}:CHANGELOG.md" 2>/dev/null; then
+    git show "${RELEASE_SHA}:CHANGELOG.md" | node -e '
+      const fs = require("node:fs");
+      const version = process.argv[1];
+      const notesFile = process.argv[2];
+      const content = fs.readFileSync(0, "utf8");
+      const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`^## ${escaped}\\r?\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "m");
+      const match = content.match(pattern);
+      if (match) {
+        const body = match[1].trim();
+        if (body) {
+          fs.writeFileSync(notesFile, `${body}\n`, "utf8");
+        }
       }
-    }
-  ' "${VERSION}" "${NOTES_FILE}"
+    ' "${VERSION}" "${NOTES_FILE}"
+  fi
 
   RELEASE_ARGS=("release" "create" "${TAG}" "--verify-tag" "--title" "${TAG}")
   if [[ -n "${PRERELEASE}" ]]; then
@@ -122,13 +151,13 @@ update_floating_tag() {
   local alias_tag="$1"
   local current_sha
   current_sha=$(resolve_remote_tag_sha "${alias_tag}")
-  if [[ "${current_sha}" == "${HEAD_SHA}" ]]; then
-    echo "Floating tag ${alias_tag} already points to ${HEAD_SHA}; skipping."
+  if [[ "${current_sha}" == "${RELEASE_SHA}" ]]; then
+    echo "Floating tag ${alias_tag} already points to ${RELEASE_SHA}; skipping."
     return 0
   fi
 
-  echo "Updating floating tag ${alias_tag} -> ${HEAD_SHA}"
-  git tag -f "${alias_tag}" "${HEAD_SHA}"
+  echo "Updating floating tag ${alias_tag} -> ${RELEASE_SHA}"
+  git tag -f "${alias_tag}" "${RELEASE_SHA}"
   git push origin --force "refs/tags/${alias_tag}"
 }
 
