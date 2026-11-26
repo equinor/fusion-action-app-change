@@ -363,6 +363,72 @@ describe("CI release tag and GitHub Release automation", () => {
     expect(fixture.remoteTagSha("v2")).toBe(v201Sha);
   });
 
+  it("refuses to move floating aliases backwards when a concurrent publisher advances them after the snapshot", () => {
+    const fixture = createGitFixture(
+      "2.0.0",
+      "# fusion-action-app-change\n\n## 2.0.0\n\n### Major Changes\n\n- Initial 2.0.0 release\n",
+    );
+    expect(fixture.runScript().status).toBe(0);
+
+    const v201Sha = fixture.commit("Version Packages (2.0.1)", {
+      "package.json": `${JSON.stringify({ name: "fusion-action-app-change", version: "2.0.1", private: true }, null, 2)}\n`,
+      "CHANGELOG.md":
+        "# fusion-action-app-change\n\n## 2.0.1\n\n### Patch Changes\n\n- Fix 2.0.1\n\n## 2.0.0\n\n- Initial 2.0.0 release\n",
+    });
+    git(fixture.workDir, ["push", "origin", "main"]);
+
+    // Prepare a concurrent v2.0.2 commit in the bare origin repository.
+    const concurrentDir = path.join(fixture.root, "concurrent");
+    git(fixture.root, ["clone", fixture.originDir, concurrentDir]);
+    writeFileSync(
+      path.join(concurrentDir, "package.json"),
+      `${JSON.stringify({ name: "fusion-action-app-change", version: "2.0.2", private: true }, null, 2)}\n`,
+      "utf8",
+    );
+    git(concurrentDir, ["add", "package.json"]);
+    git(concurrentDir, ["commit", "-m", "Version Packages (2.0.2)"]);
+    const concurrentV202Sha = git(concurrentDir, ["rev-parse", "HEAD"]);
+    git(concurrentDir, ["push", "origin", "main"]);
+
+    // Wrap git so that right after release-tags.sh reads ALL_MAJOR_TAGS (refs/tags/v2.*),
+    // the concurrent publisher advances v2.0 and v2 on origin to v2.0.2.
+    const realGit = spawnSync("which", ["git"], { encoding: "utf8" }).stdout.trim();
+    const wrapperDir = path.join(fixture.root, "race-bin");
+    spawnSync("mkdir", ["-p", wrapperDir]);
+    const gitWrapperPath = path.join(wrapperDir, "git");
+    writeFileSync(
+      gitWrapperPath,
+      `#!/usr/bin/env bash
+set -euo pipefail
+"${realGit}" "$@"
+if [[ "$*" == *"ls-remote --tags origin refs/tags/v2.*"* ]]; then
+  "${realGit}" --git-dir="${fixture.originDir}" update-ref refs/tags/v2.0.2 "${concurrentV202Sha}"
+  "${realGit}" --git-dir="${fixture.originDir}" update-ref refs/tags/v2.0 "${concurrentV202Sha}"
+  "${realGit}" --git-dir="${fixture.originDir}" update-ref refs/tags/v2 "${concurrentV202Sha}"
+fi
+`,
+      "utf8",
+    );
+    chmodSync(gitWrapperPath, 0o755);
+
+    const raceResult = spawnSync("bash", [releaseScriptPath], {
+      cwd: fixture.workDir,
+      encoding: "utf8",
+      timeout: 10000,
+      env: {
+        PATH: `${wrapperDir}:${fixture.ghBinDir}:${process.env.PATH ?? ""}`,
+        MOCK_GH_LOG: fixture.ghLogPath,
+        MOCK_GH_RELEASES: fixture.existingReleasesPath,
+      },
+    });
+
+    expect(raceResult.status).not.toBe(0);
+    expect(fixture.remoteTagSha("v2.0.1")).toBe(v201Sha);
+    // Floating aliases must remain at concurrent v2.0.2, never regressed to v2.0.1.
+    expect(fixture.remoteTagSha("v2.0")).toBe(concurrentV202Sha);
+    expect(fixture.remoteTagSha("v2")).toBe(concurrentV202Sha);
+  });
+
   it("marks prereleases with --prerelease and never moves floating major/minor tags", () => {
     const fixture = createGitFixture(
       "2.0.0",
