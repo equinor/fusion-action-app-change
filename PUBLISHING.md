@@ -20,12 +20,13 @@ This repository uses [Changesets](https://github.com/changesets/changesets) toge
    - Mark the PR ready for review and merge it when ready to release.
 
 3. **Release Publication**
-   - When the Release PR merges to `main`, `ci.yml` runs `.github/scripts/release-tags.sh`:
+   - Before `changesets/action` runs (so publication works even when additional changesets are already queued on `main`), `ci.yml` runs `.github/scripts/release-tags.sh` on the untouched push commit:
      - Validates the `package.json` version against strict SemVer 2.0.0.
-     - Confirms `vX.Y.Z` does not already exist on `origin` and that `HEAD` introduced the new version (`HEAD^:package.json` had a different version).
-     - Creates and pushes the immutable `vX.Y.Z` tag without `--force`.
-     - Creates a GitHub Release for `vX.Y.Z` using the matching `## X.Y.Z` section from `CHANGELOG.md`.
-     - Updates the floating `vX.Y` and `vX` aliases via explicit refspecs only for the highest stable release (never for prereleases and never backwards).
+     - Resolves the exact commit that introduced the version along `--first-parent` history (recovering dropped or failed release runs at the version-introducing commit rather than tagging a later non-release `HEAD`).
+     - Confirms `vX.Y.Z` does not already exist on `origin`, then creates and pushes the immutable `vX.Y.Z` tag without `--force`.
+     - Creates a GitHub Release for `vX.Y.Z` using the matching `## X.Y.Z` section from `CHANGELOG.md` at that release commit.
+     - Snapshots remote alias OIDs and updates floating `vX.Y` and `vX` aliases with `--force-with-lease` only for the highest stable release (never for prereleases and never backwards).
+   - `ci.yml` also supports `workflow_dispatch` on `main` for manual recovery if needed.
 
 4. **Non-release commits on `main`**
    - Pushes without a version bump leave existing `vX.Y.Z`, `vX.Y`, and `vX` tags untouched and do not create a release.
@@ -59,7 +60,7 @@ For SHA-pinned consumers (including repositories enforcing GitHub's *Require act
 
 ### Repository-Level Release Safeguards
 
-In addition to the CI script guards (no `git tag -f` on `vX.Y.Z`, no `git push --tags --force`, remote existence check on `origin`, and `HEAD^:package.json` version-introduction check), GitHub provides two complementary repository-level controls:
+In addition to the CI script guards (no `git tag -f` on `vX.Y.Z`, no `git push --tags --force`, remote existence check on `origin`, first-parent version-introducing commit resolution, and `--force-with-lease` floating-alias updates), GitHub provides two complementary repository-level controls:
 
 1. **GitHub Immutable Releases** (*Settings → Releases → Enable immutable releases*): Cryptographically locks every published GitHub Release and its associated `vX.Y.Z` tag against modification or deletion, while still allowing floating `vX` and `vX.Y` Git tags that have no GitHub Release to move forward on new releases. See [GitHub Docs: Using immutable releases and tags to manage your action's releases](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/using-immutable-releases-and-tags-to-manage-your-actions-releases).
 2. **Tag Protection Ruleset** (optional defense-in-depth): A repository tag ruleset targeting `refs/tags/v*.*.*` with **Restrict updates** and **Restrict deletions** blocks force-pushes to patch tags even before a GitHub Release is created, while leaving `v*` and `v*.*` aliases outside the pattern.

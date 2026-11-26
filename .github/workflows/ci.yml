@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -47,6 +48,14 @@ jobs:
       - name: Build and package action
         run: pnpm run build
 
+      # Publish immutable vX.Y.Z tag + GitHub Release and update floating vX / vX.Y aliases
+      # on the untouched push commit before Changesets may switch branches or open a new PR.
+      # Skips cleanly on non-release commits where vX.Y.Z already exists on origin.
+      - name: Create GitHub Release and Update Action Tags
+        run: bash .github/scripts/release-tags.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       # Process changesets: create or update the version Release PR when changesets are present
       - name: Create or update Release Pull Request
         id: changesets
@@ -64,13 +73,5 @@ jobs:
       - name: Convert Changeset PR to draft
         if: steps.changesets.outputs.published == 'false' && steps.changesets.outputs.pr-number
         run: gh pr ready ${{ steps.changesets.outputs.pr-number }} --undo
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      # Create immutable vX.Y.Z tag + GitHub Release and update floating vX / vX.Y aliases.
-      # Skips cleanly on non-release commits where vX.Y.Z already exists on origin.
-      - name: Create GitHub Release and Update Action Tags
-        if: steps.changesets.outputs.has-changesets == 'false' && steps.changesets.outputs.pr-number == '' && steps.changesets.outputs.published == 'false'
-        run: bash .github/scripts/release-tags.sh
         env:
           GH_TOKEN: ${{ github.token }}

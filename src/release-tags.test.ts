@@ -172,9 +172,10 @@ process.exit(2);
 }
 
 describe("CI release tag and GitHub Release automation", () => {
-  it("uses changesets/action v2 inputs and delegates tagging to release-tags.sh", () => {
+  it("uses changesets/action v2 inputs and runs release-tags.sh before changesets on the push commit", () => {
     const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
 
+    expect(ciWorkflow).toContain("workflow_dispatch:");
     expect(ciWorkflow).toContain("pr-title: '🤖 Release - Fusion Action App Change'");
     expect(ciWorkflow).toContain("create-github-releases: false");
     expect(ciWorkflow).toContain("push-with-git-cli: true");
@@ -182,6 +183,9 @@ describe("CI release tag and GitHub Release automation", () => {
     expect(ciWorkflow).toContain("steps.changesets.outputs.has-changesets");
     expect(ciWorkflow).toContain("steps.changesets.outputs.pr-number");
     expect(ciWorkflow).toContain("bash .github/scripts/release-tags.sh");
+    expect(ciWorkflow.indexOf("bash .github/scripts/release-tags.sh")).toBeLessThan(
+      ciWorkflow.indexOf("uses: changesets/action@v2.1.2"),
+    );
     expect(ciWorkflow).not.toContain("createGithubReleases:");
     expect(ciWorkflow).not.toContain("setupGitUser:");
     expect(ciWorkflow).not.toContain("steps.changesets.outputs.hasChangesets");
