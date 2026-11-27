@@ -18,6 +18,7 @@ permissions:
 jobs:
   release-action:
     name: Version or publish GitHub Action
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.changesets.outputs.published }}
