@@ -1,5 +1,25 @@
 # fusion-action-app-change
 
+## 2.0.1
+
+### Patch Changes
+
+- [#43](https://github.com/equinor/fusion-action-app-change/pull/43) [`b6c98a8`](https://github.com/equinor/fusion-action-app-change/commit/b6c98a8036dbce346c3ac03b0ee2e96272f476c2) Thanks [@Noggling](https://github.com/Noggling)! - Greenkeep dependencies and resolve open security alerts.
+  
+  - Bump `undici` to 8.12.3, `vite` to 8.3.5 and `vitest`/`@vitest/ui` to 5.1.0, resolving advisories in `undici`, `vite`, `@vitest/mocker` and `launch-editor`
+  - Bump `@actions/core` to 3.0.1, `shell-quote` to 1.12.0, `typescript` to 7.0.2, `@biomejs/biome` to 2.6.4, `@changesets/changelog-github` to 1.0.1 and `@types/node` to 26.6.6
+  - Migrate build config to Vite 8 (Rolldown/Oxc) and polyfill `import.meta.url` in the CJS bundle so the action entrypoint still runs, and compare the entrypoint guard as file URLs so it also works on Windows and with paths containing special characters
+  - Tighten the `undici` override to `>=8.12.2` so transitive consumers cannot regress to a vulnerable version
+  - Bump `actions/setup-node` to v7.1.0 and `actions/cache` to v6.1.0 in the node-setup composite action
+
+- [#46](https://github.com/equinor/fusion-action-app-change/pull/46) [`9fd4dea`](https://github.com/equinor/fusion-action-app-change/commit/9fd4deac8bb1c6e914c0fd254faf70d9ed25dc92) Thanks [@eikeland](https://github.com/eikeland)! - Fix the release workflow so `changesets/action@v2` inputs/outputs and Changesets v3 `privatePackages` versioning work properly, prevent CI from overwriting existing `vX.Y.Z` tags on non-release pushes to `main`, create GitHub Releases populated from `CHANGELOG.md`, and update floating `vX` / `vX.Y` aliases only on new stable releases.
+  
+  Documents the release-tag immutability policy, GitHub Immutable Releases safeguards, and SHA-pinned consumer guidance. This patch release also supersedes commit `d8a648b` ([#25](https://github.com/equinor/fusion-action-app-change/issues/25)), which previously moved `v2.0.0` without a distinct release or changelog entry.
+
+- [#36](https://github.com/equinor/fusion-action-app-change/pull/36) [`654636c`](https://github.com/equinor/fusion-action-app-change/commit/654636c623b1401d98aee53af67df0cb15589a30) Thanks [@eikeland](https://github.com/eikeland)! - Update runtime and development dependencies to address security vulnerabilities, and rebuild the bundled action with the updated dependencies.
+  
+  Pin GitHub Actions used in workflows and composite actions to full commit SHAs to improve supply-chain security.
+
 ## 2.0.0
 
 ### Major Changes
