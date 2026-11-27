@@ -1,96 +1,84 @@
 # Publishing Guide
 
-## 📦 How to Publish the Fusion App Change Detection Action
+This guide explains how new versions of `equinor/fusion-action-app-change` are versioned and published through the automated Changesets workflow.
 
-### Method 1: GitHub Releases (Start Here)
+## 📦 Automated Release Process
 
-1. **Prepare for release:**
+This repository uses [Changesets](https://github.com/changesets/changesets) with two separate workflows so normal merges to `main` never run release tagging:
+
+- **`.github/workflows/ci.yml`** (`push` on `main`): runs tests/lint/build and runs `changesets/action` to open or update the draft Release PR (`changeset-release/main`). It never touches tags or GitHub Releases.
+- **`.github/workflows/release.yml`** (`pull_request: [closed]` on `main`, plus `workflow_dispatch` on `main`): runs `.github/scripts/release-tags.sh` **only** when the same-repository `changeset-release/main` Release PR is merged into `main` (or manually dispatched on `main` for recovery).
+
+### Standard Release Workflow
+
+1. **Add a changeset with your PR**
    ```bash
-   # Ensure everything is committed
-   git add .
-   git commit -m "feat: initial release of fusion-action-app-change"
-   git push origin main
+   pnpm changeset
    ```
+   Commit the generated `.changeset/*.md` file alongside your changes and merge the PR to `main`.
 
-2. **Create a release tag:**
-   ```bash
-   # Create and push tag
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
+2. **Review the Release PR**
+   - When changesets land on `main`, `ci.yml` runs `changesets/action` and opens or updates a draft Release PR from `changeset-release/main` titled `"🤖 Release - Fusion Action App Change"`.
+   - Verify the version bump in `package.json`, the generated `CHANGELOG.md` entries, and the rebuilt `dist/` files.
+   - Mark the PR ready for review and merge it when ready to release.
 
-3. **Create GitHub Release:**
-   - Go to: `https://github.com/equinor/fusion-action-app-change/releases/new`
-   - Tag: `v1.0.0`
-   - Title: `v1.0.0 - Initial Release`
-   - Description: Include key features and changes
+3. **Release Publication**
+   - Merging the `changeset-release/main` PR triggers `release.yml`, which checks out the exact `merge_commit_sha` on `main` and runs `.github/scripts/release-tags.sh`:
+     - Validates the `package.json` version against strict SemVer 2.0.0.
+     - Resolves the exact commit that introduced the version along `--first-parent` history (recovering dropped or failed release runs at the version-introducing commit rather than tagging a later non-release `HEAD`).
+     - Confirms `vX.Y.Z` does not already exist on `origin`, then creates and pushes the immutable `vX.Y.Z` tag without `--force`.
+     - Creates a GitHub Release for `vX.Y.Z` using the matching `## X.Y.Z` section from `CHANGELOG.md` at that release commit.
+     - Snapshots remote alias OIDs and updates floating `vX.Y` and `vX` aliases with `--force-with-lease` only for the highest stable release (never for prereleases and never backwards).
+   - If a release run fails partway through, re-run the workflow or trigger `release.yml` via `workflow_dispatch` on `main` to finish idempotently.
 
-4. **Users can now use it:**
-   ```yaml
-   - uses: equinor/fusion-action-app-change@v1.0.0
-   # or
-   - uses: equinor/fusion-action-app-change@v1
-   ```
+4. **Non-release commits on `main`**
+   - Normal PRs merged to `main` (including those without changesets) never trigger `release.yml`, leaving `vX.Y.Z`, `vX.Y`, and `vX` untouched.
 
-### Method 2: GitHub Actions Marketplace
+## 🏷️ Versioning, Tags, and Immutability Policy
 
-1. **Add marketplace metadata to action.yml:**
-   ```yaml
-   name: 'Fusion App Change Detection'
-   description: 'Detect changes in Fusion applications for smart CI/CD deployments'
-   author: 'Equinor Fusion Core'
-   branding:
-     icon: 'git-branch'
-     color: 'blue'
-   ```
+The release automation separates **immutable release tags** from **floating compatibility aliases**:
 
-2. **Create release (same as above)**
+- **Release-specific patch tags (`vX.Y.Z`, e.g., `v2.0.1`):** Immutable. Created once per new `package.json` version without `--force`, never overwritten on subsequent commits, and paired with a GitHub Release whose notes match `CHANGELOG.md`.
+- **Floating minor aliases (`vX.Y`, e.g., `v2.0`):** Mutable Git tags (no GitHub Release). Updated forward via explicit refspecs only when a new highest stable `vX.Y.*` patch release is published.
+- **Floating major aliases (`vX`, e.g., `v2`):** Mutable Git tags (no GitHub Release). Updated forward via explicit refspecs only when a new highest stable `vX.*.*` release is published.
+- **Prerelease tags (`vX.Y.Z-rc.1`):** Published as GitHub prereleases and never move `vX` or `vX.Y` aliases.
 
-3. **Publish to Marketplace:**
-   - Go to GitHub repository → Actions tab
-   - Click "Publish this Action to Marketplace"
-   - Fill out marketplace form
-   - Submit for review
+### Consumer Pinning Guidance
 
-### Method 3: Internal/Private Usage
-
-Users can reference directly:
 ```yaml
-- uses: equinor/fusion-action-app-change@main
+# Pin to a full 40-character commit SHA with a version comment (recommended for security-sensitive workflows)
+- uses: equinor/fusion-action-app-change@<40-char-commit-sha> # v2.0.1
+
+# Pin to an exact immutable patch tag
+- uses: equinor/fusion-action-app-change@v2.0.1
+
+# Follow backward-compatible patch releases on v2.0
+- uses: equinor/fusion-action-app-change@v2.0
+
+# Follow backward-compatible minor and patch releases on v2
+- uses: equinor/fusion-action-app-change@v2
 ```
 
-## 🏷️ Versioning Strategy
+For SHA-pinned consumers (including repositories enforcing GitHub's *Require actions to be pinned to a full-length commit SHA* policy or using Dependabot `github-actions` updates), keep the `# vX.Y.Z` comment alongside the 40-character commit SHA. Because published `vX.Y.Z` tags are never moved, Dependabot only proposes SHA bumps when a new version is genuinely released with matching `CHANGELOG.md` and GitHub Release notes.
 
-### Major Versions (v1, v2, v3)
-- Update major version tag after releases
-- Users can pin to `@v1` for automatic minor updates
+### Repository-Level Release Safeguards
 
-```bash
-# After releasing v1.0.0, v1.1.0, v1.2.0...
-git tag -f v1  # Move v1 tag to latest v1.x.x
-git push origin v1 --force
-```
+In addition to the CI script guards (no `git tag -f` on `vX.Y.Z`, no `git push --tags --force`, remote existence check on `origin`, first-parent version-introducing commit resolution, and `--force-with-lease` floating-alias updates), GitHub provides two complementary repository-level controls:
 
-### Example Release Workflow
-```bash
-# Release v1.1.0
-git tag v1.1.0
-git push origin v1.1.0
+1. **GitHub Immutable Releases** (*Settings → Releases → Enable immutable releases*): Cryptographically locks every published GitHub Release and its associated `vX.Y.Z` tag against modification or deletion, while still allowing floating `vX` and `vX.Y` Git tags that have no GitHub Release to move forward on new releases. See [GitHub Docs: Using immutable releases and tags to manage your action's releases](https://docs.github.com/en/actions/how-tos/create-and-publish-actions/using-immutable-releases-and-tags-to-manage-your-actions-releases).
+2. **Tag Protection Ruleset** (optional defense-in-depth): A repository tag ruleset targeting `refs/tags/v*.*.*` with **Restrict updates** and **Restrict deletions** blocks force-pushes to patch tags even before a GitHub Release is created, while leaving `v*` and `v*.*` aliases outside the pattern.
 
-# Update major version pointer
-git tag -f v1
-git push origin v1 --force
-```
+Never delete, force-move, or recreate an already-published `vX.Y.Z` tag. If a release needs a follow-up fix, add a patch changeset and publish the next unused patch version.
 
 ## 📋 Pre-publish Checklist
 
-- [ ] All tests pass (run `npm test`)
+- [ ] All tests pass (`pnpm test`)
+- [ ] Linting and formatting pass (`pnpm run lint` and `pnpm run check`)
+- [ ] Build succeeds and `dist/` is up to date (`pnpm run build`)
 - [ ] Documentation is complete
-- [ ] Example workflows are tested
-- [ ] Action outputs are properly validated
-- [ ] Version in package.json is bumped
-- [ ] Action.yml has proper branding
-- [ ] No sensitive information in code
+- [ ] Version in `package.json` and `CHANGELOG.md` accurately reflect the release
+- [ ] `action.yml` metadata and inputs/outputs are up to date
+- [ ] No sensitive information in code or changelog
 - [ ] LICENSE file is present
 - [ ] App detection logic handles edge cases
 

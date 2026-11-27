@@ -8,19 +8,19 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 # Security: Apply principle of least privilege
-# This workflow handles action versioning and GitHub releases
+# This workflow runs CI checks on main and manages Changesets release PRs
 permissions:
-  contents: write      # Required for creating releases and pushing tags
+  contents: write      # Required for changesets/action to push the release branch
   id-token: write      # Required for OIDC token generation
-  pull-requests: write # Required for changesets action to create PRs
+  pull-requests: write # Required for changesets/action to create/update release PRs
 
 jobs:
   release-action:
-    name: Version or publish GitHub Action
+    name: Validate and manage Release PR
     runs-on: ubuntu-latest
     outputs:
       published: ${{ steps.changesets.outputs.published }}
-      hasChangesets: ${{ steps.changesets.outputs.hasChangesets }}
+      hasChangesets: ${{ steps.changesets.outputs.has-changesets }}
     steps:
       # Checkout repository with full history for changeset processing
       - uses: actions/checkout@v7.0.1
@@ -47,45 +47,22 @@ jobs:
       - name: Build and package action
         run: pnpm run build
 
-      # Process changesets: create version PR or create GitHub releases
-      - name: Create Release Pull Request or Create GitHub Release
+      # Process changesets: create or update the version Release PR when changesets are present
+      - name: Create or update Release Pull Request
         id: changesets
         uses: changesets/action@v2.1.2
         with:
-          title: '🤖 Release - Fusion Action App Change'
-          createGithubReleases: true
-          setupGitUser: false
-          version: pnpm run changeset:version
+          pr-title: '🤖 Release - Fusion Action App Change'
+          create-github-releases: false
+          push-with-git-cli: true
+          version-script: pnpm run changeset:version
+          github-token: ${{ github.token }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
       # Convert changeset PR to draft to prevent accidental merging
       - name: Convert Changeset PR to draft
-        if: steps.changesets.outputs.published == 'false' && steps.changesets.outputs.pullRequestNumber
-        run: gh pr ready ${{ steps.changesets.outputs.pullRequestNumber }} --undo
+        if: steps.changesets.outputs.published == 'false' && steps.changesets.outputs.pr-number
+        run: gh pr ready ${{ steps.changesets.outputs.pr-number }} --undo
         env:
           GH_TOKEN: ${{ github.token }}
-
-      # Create git tags for GitHub Action versioning (v1, v1.2, v1.2.3)
-      - name: Create/Update Action Tags
-        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
-        run: |
-          # Get the latest version from package.json
-          VERSION=$(node -p "require('./package.json').version")
-          echo "Published version: $VERSION"
-          
-          # Create version tags for GitHub Actions marketplace
-          git tag -f "v${VERSION}"
-          
-          # Create major version tag (e.g., v1 from v1.2.3)
-          MAJOR_VERSION=$(echo $VERSION | cut -d. -f1)
-          git tag -f "v${MAJOR_VERSION}"
-          
-          # Create minor version tag (e.g., v1.2 from v1.2.3)  
-          MINOR_VERSION=$(echo $VERSION | cut -d. -f1-2)
-          git tag -f "v${MINOR_VERSION}"
-          
-          # Push tags
-          git push origin --tags --force
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
