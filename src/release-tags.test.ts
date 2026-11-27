@@ -47,7 +47,7 @@ interface Fixture {
   ghLogPath: string;
   existingReleasesPath: string;
   commit: (message: string, files: Record<string, string>) => string;
-  runScript: () => { status: number | null; stdout: string; stderr: string };
+  runScript: (args?: string[]) => { status: number | null; stdout: string; stderr: string };
   remoteTagSha: (tag: string) => string;
   ghCalls: () => MockGhCall[];
 }
@@ -121,8 +121,8 @@ process.exit(2);
   });
   git(workDir, ["push", "-u", "origin", "main"]);
 
-  const runScript = () => {
-    const result = spawnSync("bash", [releaseScriptPath], {
+  const runScript = (args: string[] = []) => {
+    const result = spawnSync("bash", [releaseScriptPath, ...args], {
       cwd: workDir,
       encoding: "utf8",
       timeout: 10000,
@@ -206,13 +206,18 @@ describe("CI release tag and GitHub Release automation", () => {
     expect(releaseWorkflow).toContain("github.event.pull_request.merge_commit_sha");
     expect(releaseWorkflow).not.toMatch(/^concurrency:/m);
     expect(releaseWorkflow).toContain("    concurrency:\n      group: release-main");
+    expect(releaseWorkflow).toContain("--resolve-release-sha");
+    expect(releaseWorkflow).toMatch(/git checkout --detach "\$\{RELEASE_SHA\}"/);
     expect(releaseWorkflow).toContain("run: pnpm test");
     expect(releaseWorkflow).toContain("run: pnpm run lint");
     expect(releaseWorkflow).toContain("run: pnpm run build");
-    expect(releaseWorkflow.indexOf("run: pnpm run build")).toBeLessThan(
-      releaseWorkflow.indexOf("bash .github/scripts/release-tags.sh"),
+    expect(releaseWorkflow.indexOf("--resolve-release-sha")).toBeLessThan(
+      releaseWorkflow.indexOf("uses: $/.github/actions/node-setup"),
     );
-    expect(releaseWorkflow).toContain("bash .github/scripts/release-tags.sh");
+    expect(releaseWorkflow.indexOf("run: pnpm run build")).toBeLessThan(
+      releaseWorkflow.indexOf("Create GitHub Release and Update Action Tags"),
+    );
+    expect(releaseWorkflow).toMatch(/bash "\$\{RUNNER_TEMP\}\/release-tags\.sh"/);
     expect(releaseWorkflow).not.toMatch(/git tag -f\b/);
     expect(releaseWorkflow).not.toContain("git push origin --tags --force");
   });
@@ -239,22 +244,34 @@ describe("CI release tag and GitHub Release automation", () => {
     const createCallsBefore = fixture
       .ghCalls()
       .filter((call) => call.args[0] === "release" && call.args[1] === "create").length;
-    const nonReleaseRun = fixture.runScript();
 
-    expect(nonReleaseRun.status).toBe(0);
-    expect(nonReleaseRun.stdout).toContain(`already points to release commit (${v200Sha})`);
-    expect(nonReleaseRun.stdout).toContain("GitHub Release v2.0.0 already exists");
+    const directNonReleaseRun = fixture.runScript();
+    expect(directNonReleaseRun.status).toBe(1);
+    expect(directNonReleaseRun.stderr).toContain("does not match the version-introducing commit");
     expect(fixture.remoteTagSha("v2.0.0")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2.0")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2.0.0")).not.toBe(ciOnlySha);
+
+    const resolved = fixture.runScript(["--resolve-release-sha"]);
+    expect(resolved.status).toBe(0);
+    expect(resolved.stdout.trim()).toBe(v200Sha);
+
+    git(fixture.workDir, ["checkout", "--detach", resolved.stdout.trim()]);
+    const idempotentRun = fixture.runScript();
+    expect(idempotentRun.status).toBe(0);
+    expect(idempotentRun.stdout).toContain(`already points to release commit (${v200Sha})`);
+    expect(idempotentRun.stdout).toContain("GitHub Release v2.0.0 already exists");
+    expect(fixture.remoteTagSha("v2.0.0")).toBe(v200Sha);
+    expect(fixture.remoteTagSha("v2.0")).toBe(v200Sha);
+    expect(fixture.remoteTagSha("v2")).toBe(v200Sha);
     const createCallsAfter = fixture
       .ghCalls()
       .filter((call) => call.args[0] === "release" && call.args[1] === "create").length;
     expect(createCallsAfter).toBe(createCallsBefore);
   });
 
-  it("recovers an unpublished release at the version-introducing commit instead of tagging a later non-release HEAD", () => {
+  it("refuses to publish an earlier release SHA until checked out, then recovers cleanly via --resolve-release-sha", () => {
     const fixture = createGitFixture(
       "2.0.0",
       "# fusion-action-app-change\n\n## 2.0.0\n\n### Major Changes\n\n- Initial 2.0.0 release\n",
@@ -270,7 +287,7 @@ describe("CI release tag and GitHub Release automation", () => {
     });
     git(fixture.workDir, ["push", "origin", "main"]);
 
-    // Later non-release commit supersedes the dropped run on main.
+    // Later non-release commit advances main.
     const followUpDocsSha = fixture.commit("docs: clarify readme", {
       "README.md": "follow-up docs\n",
       "CHANGELOG.md":
@@ -278,12 +295,23 @@ describe("CI release tag and GitHub Release automation", () => {
     });
     git(fixture.workDir, ["push", "origin", "main"]);
 
+    // Without checking out RELEASE_SHA first, release-tags.sh refuses to tag an unvalidated earlier commit.
+    const unvalidatedRun = fixture.runScript();
+    expect(unvalidatedRun.status).toBe(1);
+    expect(unvalidatedRun.stderr).toContain("does not match the version-introducing commit");
+    expect(fixture.remoteTagSha("v2.0.1")).toBe("");
+    expect(fixture.remoteTagSha("v2.0")).toBe(v200Sha);
+    expect(fixture.remoteTagSha("v2")).toBe(v200Sha);
+
+    // Resolving RELEASE_SHA first allows release.yml to check it out, validate it, and then publish it.
+    const resolved = fixture.runScript(["--resolve-release-sha"]);
+    expect(resolved.status).toBe(0);
+    expect(resolved.stdout.trim()).toBe(versionBumpSha);
+
+    git(fixture.workDir, ["checkout", "--detach", resolved.stdout.trim()]);
     const recoveryRun = fixture.runScript();
 
     expect(recoveryRun.status).toBe(0);
-    expect(recoveryRun.stdout).toContain(
-      `Recovering unpublished release v2.0.1 at version-introducing commit ${versionBumpSha}`,
-    );
     expect(fixture.remoteTagSha("v2.0.0")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2.0.1")).toBe(versionBumpSha);
     expect(fixture.remoteTagSha("v2.0.1")).not.toBe(followUpDocsSha);
@@ -296,15 +324,21 @@ describe("CI release tag and GitHub Release automation", () => {
     expect(v201Release?.notes).toContain("Fix 2.0.1");
     expect(v201Release?.notes).not.toContain("Mutated later docs");
 
-    // Another follow-up non-release commit skips creating a duplicate release once v2.0.1 is published.
+    // Another follow-up non-release commit stays idempotent when resolved & checked out.
     const createCallsAfterRecovery = fixture
       .ghCalls()
       .filter((call) => call.args[0] === "release" && call.args[1] === "create").length;
+    git(fixture.workDir, ["checkout", "main"]);
     fixture.commit("docs: second follow-up", {
       "README.md": "second follow-up docs\n",
     });
     git(fixture.workDir, ["push", "origin", "main"]);
 
+    const resolvedAgain = fixture.runScript(["--resolve-release-sha"]);
+    expect(resolvedAgain.status).toBe(0);
+    expect(resolvedAgain.stdout.trim()).toBe(versionBumpSha);
+
+    git(fixture.workDir, ["checkout", "--detach", resolvedAgain.stdout.trim()]);
     const subsequentRun = fixture.runScript();
     expect(subsequentRun.status).toBe(0);
     expect(subsequentRun.stdout).toContain(`already points to release commit (${versionBumpSha})`);
@@ -345,6 +379,11 @@ describe("CI release tag and GitHub Release automation", () => {
     });
     git(fixture.workDir, ["push", "origin", "main"]);
 
+    const resolved = fixture.runScript(["--resolve-release-sha"]);
+    expect(resolved.status).toBe(0);
+    expect(resolved.stdout.trim()).toBe(versionBumpSha);
+
+    git(fixture.workDir, ["checkout", "--detach", resolved.stdout.trim()]);
     const retryRun = fixture.runScript();
     expect(retryRun.status).toBe(0);
     expect(retryRun.stdout).toContain(`already points to release commit (${versionBumpSha})`);
