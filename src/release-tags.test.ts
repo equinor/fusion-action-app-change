@@ -62,8 +62,9 @@ function createGitFixture(initialVersion: string, initialChangelog: string): Fix
   const existingReleasesPath = path.join(root, "existing-releases.txt");
 
   git(root, ["init", "--bare", originDir]);
+  git(originDir, ["symbolic-ref", "HEAD", "refs/heads/main"]);
   git(root, ["clone", originDir, workDir]);
-  git(workDir, ["checkout", "-b", "main"]);
+  git(workDir, ["checkout", "-B", "main"]);
 
   writeFileSync(existingReleasesPath, "", "utf8");
   writeFileSync(ghLogPath, "", "utf8");
@@ -176,6 +177,7 @@ describe("CI release tag and GitHub Release automation", () => {
     const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
 
     expect(ciWorkflow).toContain("workflow_dispatch:");
+    expect(ciWorkflow).toContain("if: github.ref == 'refs/heads/main'");
     expect(ciWorkflow).toContain("pr-title: '🤖 Release - Fusion Action App Change'");
     expect(ciWorkflow).toContain("create-github-releases: false");
     expect(ciWorkflow).toContain("push-with-git-cli: true");
@@ -383,7 +385,7 @@ describe("CI release tag and GitHub Release automation", () => {
 
     // Prepare a concurrent v2.0.2 commit in the bare origin repository.
     const concurrentDir = path.join(fixture.root, "concurrent");
-    git(fixture.root, ["clone", fixture.originDir, concurrentDir]);
+    git(fixture.root, ["clone", "--branch", "main", fixture.originDir, concurrentDir]);
     writeFileSync(
       path.join(concurrentDir, "package.json"),
       `${JSON.stringify({ name: "fusion-action-app-change", version: "2.0.2", private: true }, null, 2)}\n`,
