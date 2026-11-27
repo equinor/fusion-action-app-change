@@ -73,15 +73,9 @@ fi
 
 REMOTE_TAG_SHA=$(resolve_remote_tag_sha "${TAG}")
 
-# Non-release pushes to main keep the already-tagged package.json version.
-# Never overwrite an existing release tag or move floating aliases for non-release commits.
+# Never overwrite an existing release tag that points to a different commit.
 if [[ -n "${REMOTE_TAG_SHA}" && "${REMOTE_TAG_SHA}" != "${RELEASE_SHA}" ]]; then
   echo "Tag ${TAG} already exists on origin at ${REMOTE_TAG_SHA} (release commit is ${RELEASE_SHA}); skipping tag and release creation."
-  exit 0
-fi
-
-if [[ -n "${REMOTE_TAG_SHA}" && "${HEAD_SHA}" != "${RELEASE_SHA}" ]]; then
-  echo "Tag ${TAG} already exists on origin at ${REMOTE_TAG_SHA} (HEAD is ${HEAD_SHA}); skipping tag and release creation."
   exit 0
 fi
 

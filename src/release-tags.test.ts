@@ -215,16 +215,22 @@ describe("CI release tag and GitHub Release automation", () => {
     git(fixture.workDir, ["push", "origin", "main"]);
     git(fixture.workDir, ["tag", "-d", "v2.0.0"]);
 
-    const callsBefore = fixture.ghCalls().length;
+    const createCallsBefore = fixture
+      .ghCalls()
+      .filter((call) => call.args[0] === "release" && call.args[1] === "create").length;
     const nonReleaseRun = fixture.runScript();
 
     expect(nonReleaseRun.status).toBe(0);
-    expect(nonReleaseRun.stdout).toContain("already exists on origin");
+    expect(nonReleaseRun.stdout).toContain(`already points to release commit (${v200Sha})`);
+    expect(nonReleaseRun.stdout).toContain("GitHub Release v2.0.0 already exists");
     expect(fixture.remoteTagSha("v2.0.0")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2.0")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2")).toBe(v200Sha);
     expect(fixture.remoteTagSha("v2.0.0")).not.toBe(ciOnlySha);
-    expect(fixture.ghCalls().length).toBe(callsBefore);
+    const createCallsAfter = fixture
+      .ghCalls()
+      .filter((call) => call.args[0] === "release" && call.args[1] === "create").length;
+    expect(createCallsAfter).toBe(createCallsBefore);
   });
 
   it("recovers an unpublished release at the version-introducing commit instead of tagging a later non-release HEAD", () => {
@@ -269,8 +275,10 @@ describe("CI release tag and GitHub Release automation", () => {
     expect(v201Release?.notes).toContain("Fix 2.0.1");
     expect(v201Release?.notes).not.toContain("Mutated later docs");
 
-    // Another follow-up non-release commit skips cleanly once v2.0.1 is published.
-    const callsAfterRecovery = fixture.ghCalls().length;
+    // Another follow-up non-release commit skips creating a duplicate release once v2.0.1 is published.
+    const createCallsAfterRecovery = fixture
+      .ghCalls()
+      .filter((call) => call.args[0] === "release" && call.args[1] === "create").length;
     fixture.commit("docs: second follow-up", {
       "README.md": "second follow-up docs\n",
     });
@@ -278,9 +286,57 @@ describe("CI release tag and GitHub Release automation", () => {
 
     const subsequentRun = fixture.runScript();
     expect(subsequentRun.status).toBe(0);
-    expect(subsequentRun.stdout).toContain("already exists on origin");
+    expect(subsequentRun.stdout).toContain(`already points to release commit (${versionBumpSha})`);
+    expect(subsequentRun.stdout).toContain("GitHub Release v2.0.1 already exists");
     expect(fixture.remoteTagSha("v2.0.1")).toBe(versionBumpSha);
-    expect(fixture.ghCalls().length).toBe(callsAfterRecovery);
+    expect(
+      fixture.ghCalls().filter((call) => call.args[0] === "release" && call.args[1] === "create")
+        .length,
+    ).toBe(createCallsAfterRecovery);
+  });
+
+  it("finishes incomplete GitHub Release and floating alias updates on retry after main advances", () => {
+    const fixture = createGitFixture(
+      "2.0.0",
+      "# fusion-action-app-change\n\n## 2.0.0\n\n### Major Changes\n\n- Initial 2.0.0 release\n",
+    );
+    const v200Sha = git(fixture.workDir, ["rev-parse", "HEAD"]);
+    expect(fixture.runScript().status).toBe(0);
+
+    // Version-bump commit lands and its tag push succeeds, but Release creation and alias pushes fail.
+    const versionBumpSha = fixture.commit("Version Packages (2.0.1)", {
+      "package.json": `${JSON.stringify({ name: "fusion-action-app-change", version: "2.0.1", private: true }, null, 2)}\n`,
+      "CHANGELOG.md":
+        "# fusion-action-app-change\n\n## 2.0.1\n\n### Patch Changes\n\n- Partial failure fix 2.0.1\n\n## 2.0.0\n\n- Initial 2.0.0 release\n",
+    });
+    git(fixture.workDir, ["push", "origin", "main"]);
+    git(fixture.workDir, ["tag", "v2.0.1", versionBumpSha]);
+    git(fixture.workDir, ["push", "origin", "refs/tags/v2.0.1"]);
+
+    // Verify pre-retry partial state: v2.0.1 tag exists, but v2.0/v2 are still on v2.0.0 and no v2.0.1 Release exists.
+    expect(fixture.remoteTagSha("v2.0.1")).toBe(versionBumpSha);
+    expect(fixture.remoteTagSha("v2.0")).toBe(v200Sha);
+    expect(fixture.remoteTagSha("v2")).toBe(v200Sha);
+
+    // Main advances with a non-release commit before retry runs.
+    const followUpSha = fixture.commit("docs: update after partial failure", {
+      "README.md": "after partial failure\n",
+    });
+    git(fixture.workDir, ["push", "origin", "main"]);
+
+    const retryRun = fixture.runScript();
+    expect(retryRun.status).toBe(0);
+    expect(retryRun.stdout).toContain(`already points to release commit (${versionBumpSha})`);
+    expect(fixture.remoteTagSha("v2.0.1")).toBe(versionBumpSha);
+    expect(fixture.remoteTagSha("v2.0.1")).not.toBe(followUpSha);
+    expect(fixture.remoteTagSha("v2.0")).toBe(versionBumpSha);
+    expect(fixture.remoteTagSha("v2")).toBe(versionBumpSha);
+
+    const v201Release = fixture
+      .ghCalls()
+      .find((call) => call.args[1] === "create" && call.args[2] === "v2.0.1");
+    expect(v201Release).toBeDefined();
+    expect(v201Release?.notes).toContain("Partial failure fix 2.0.1");
   });
 
   it("publishes a new unused patch version from a merge commit with matching changelog release notes while preserving prior tags", () => {
