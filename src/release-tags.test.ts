@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 const repoRoot = path.join(__dirname, "..");
 const releaseScriptPath = path.join(repoRoot, ".github", "scripts", "release-tags.sh");
 const ciWorkflowPath = path.join(repoRoot, ".github", "workflows", "ci.yml");
+const releaseWorkflowPath = path.join(repoRoot, ".github", "workflows", "release.yml");
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
@@ -173,27 +174,39 @@ process.exit(2);
 }
 
 describe("CI release tag and GitHub Release automation", () => {
-  it("uses changesets/action v2 inputs and runs release-tags.sh before changesets on the push commit", () => {
+  it("separates Changesets PR management in ci.yml from release publication in release.yml", () => {
     const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
+    const releaseWorkflow = readFileSync(releaseWorkflowPath, "utf8");
 
-    expect(ciWorkflow).toContain("workflow_dispatch:");
-    expect(ciWorkflow).toContain("if: github.ref == 'refs/heads/main'");
     expect(ciWorkflow).toContain("pr-title: '🤖 Release - Fusion Action App Change'");
     expect(ciWorkflow).toContain("create-github-releases: false");
     expect(ciWorkflow).toContain("push-with-git-cli: true");
     expect(ciWorkflow).toContain("version-script: pnpm run changeset:version");
     expect(ciWorkflow).toContain("steps.changesets.outputs.has-changesets");
     expect(ciWorkflow).toContain("steps.changesets.outputs.pr-number");
-    expect(ciWorkflow).toContain("bash .github/scripts/release-tags.sh");
-    expect(ciWorkflow.indexOf("bash .github/scripts/release-tags.sh")).toBeLessThan(
-      ciWorkflow.indexOf("uses: changesets/action@v2.1.2"),
-    );
+    expect(ciWorkflow).not.toContain("release-tags.sh");
     expect(ciWorkflow).not.toContain("createGithubReleases:");
     expect(ciWorkflow).not.toContain("setupGitUser:");
     expect(ciWorkflow).not.toContain("steps.changesets.outputs.hasChangesets");
     expect(ciWorkflow).not.toContain("steps.changesets.outputs.pullRequestNumber");
     expect(ciWorkflow).not.toMatch(/git tag -f\b/);
     expect(ciWorkflow).not.toContain("git push origin --tags --force");
+
+    expect(releaseWorkflow).toContain("types: [closed]");
+    expect(releaseWorkflow).toContain("workflow_dispatch:");
+    expect(releaseWorkflow).toContain("github.ref == 'refs/heads/main'");
+    expect(releaseWorkflow).toContain("github.event.pull_request.merged == true");
+    expect(releaseWorkflow).toContain("github.event.pull_request.base.ref == 'main'");
+    expect(releaseWorkflow).toContain(
+      "github.event.pull_request.head.ref == 'changeset-release/main'",
+    );
+    expect(releaseWorkflow).toContain(
+      "github.event.pull_request.head.repo.full_name == github.repository",
+    );
+    expect(releaseWorkflow).toContain("github.event.pull_request.merge_commit_sha");
+    expect(releaseWorkflow).toContain("bash .github/scripts/release-tags.sh");
+    expect(releaseWorkflow).not.toMatch(/git tag -f\b/);
+    expect(releaseWorkflow).not.toContain("git push origin --tags --force");
   });
 
   it("does not overwrite an existing release tag or move floating aliases on non-release commits", () => {

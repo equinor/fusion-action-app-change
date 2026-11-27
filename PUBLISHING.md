@@ -4,7 +4,10 @@ This guide explains how new versions of `equinor/fusion-action-app-change` are v
 
 ## 📦 Automated Release Process
 
-This repository uses [Changesets](https://github.com/changesets/changesets) together with `.github/workflows/ci.yml` and `.github/scripts/release-tags.sh`.
+This repository uses [Changesets](https://github.com/changesets/changesets) with two separate workflows so normal merges to `main` never run release tagging:
+
+- **`.github/workflows/ci.yml`** (`push` on `main`): runs tests/lint/build and runs `changesets/action` to open or update the draft Release PR (`changeset-release/main`). It never touches tags or GitHub Releases.
+- **`.github/workflows/release.yml`** (`pull_request: [closed]` on `main`, plus `workflow_dispatch` on `main`): runs `.github/scripts/release-tags.sh` **only** when the same-repository `changeset-release/main` Release PR is merged into `main` (or manually dispatched on `main` for recovery).
 
 ### Standard Release Workflow
 
@@ -15,21 +18,21 @@ This repository uses [Changesets](https://github.com/changesets/changesets) toge
    Commit the generated `.changeset/*.md` file alongside your changes and merge the PR to `main`.
 
 2. **Review the Release PR**
-   - When changesets land on `main`, `ci.yml` runs `changesets/action` and opens or updates a draft Release PR titled `"🤖 Release - Fusion Action App Change"`.
+   - When changesets land on `main`, `ci.yml` runs `changesets/action` and opens or updates a draft Release PR from `changeset-release/main` titled `"🤖 Release - Fusion Action App Change"`.
    - Verify the version bump in `package.json`, the generated `CHANGELOG.md` entries, and the rebuilt `dist/` files.
    - Mark the PR ready for review and merge it when ready to release.
 
 3. **Release Publication**
-   - Before `changesets/action` runs (so publication works even when additional changesets are already queued on `main`), `ci.yml` runs `.github/scripts/release-tags.sh` on the untouched push commit:
+   - Merging the `changeset-release/main` PR triggers `release.yml`, which checks out the exact `merge_commit_sha` on `main` and runs `.github/scripts/release-tags.sh`:
      - Validates the `package.json` version against strict SemVer 2.0.0.
      - Resolves the exact commit that introduced the version along `--first-parent` history (recovering dropped or failed release runs at the version-introducing commit rather than tagging a later non-release `HEAD`).
      - Confirms `vX.Y.Z` does not already exist on `origin`, then creates and pushes the immutable `vX.Y.Z` tag without `--force`.
      - Creates a GitHub Release for `vX.Y.Z` using the matching `## X.Y.Z` section from `CHANGELOG.md` at that release commit.
      - Snapshots remote alias OIDs and updates floating `vX.Y` and `vX` aliases with `--force-with-lease` only for the highest stable release (never for prereleases and never backwards).
-   - `ci.yml` also supports `workflow_dispatch` on `main` for manual recovery if needed.
+   - If a release run fails partway through, re-run the workflow or trigger `release.yml` via `workflow_dispatch` on `main` to finish idempotently.
 
 4. **Non-release commits on `main`**
-   - Pushes without a version bump leave existing `vX.Y.Z`, `vX.Y`, and `vX` tags untouched and do not create a release.
+   - Normal PRs merged to `main` (including those without changesets) never trigger `release.yml`, leaving `vX.Y.Z`, `vX.Y`, and `vX` untouched.
 
 ## 🏷️ Versioning, Tags, and Immutability Policy
 
